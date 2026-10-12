@@ -494,7 +494,7 @@ Use the proxy image without this repository, in front of any Penpot ≥ 2.18:
 
 **Publishing (maintainers):** `.github/workflows/images.yml` pushes to GHCR
 with the built-in `GITHUB_TOKEN`. For Docker Hub, add the repository secrets
-`DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` (and optionally the variable
+`DOCKERHUB_USERNAME` (or `DOCKERHUB_NAME`) and `DOCKERHUB_TOKEN` (and optionally the variable
 `DOCKERHUB_NAMESPACE`). Create a release with `git tag v1.0.0 && git push --tags`.
 New GHCR packages are private: make them public under
 *GitHub → Packages → freegma → Package settings → Change visibility*.

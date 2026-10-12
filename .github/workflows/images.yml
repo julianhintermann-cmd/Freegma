@@ -12,9 +12,9 @@
 #   - manual dispatch          -> like a push of the selected ref
 #
 # Docker Hub is used when these are configured in the repository settings:
-#   secret   DOCKERHUB_USERNAME   Docker Hub user
+#   secret   DOCKERHUB_USERNAME   Docker Hub user (DOCKERHUB_NAME works too)
 #   secret   DOCKERHUB_TOKEN      Docker Hub access token (Read & Write)
-#   variable DOCKERHUB_NAMESPACE  optional, defaults to DOCKERHUB_USERNAME
+#   variable DOCKERHUB_NAMESPACE  optional, defaults to the Docker Hub user
 # No `latest` tag is published on purpose: deployments pin exact versions.
 
 name: images
@@ -57,8 +57,8 @@ jobs:
             description: Freegma tools - smoke test, MCP setup and MCP end-to-end test
     env:
       PUBLISH: ${{ github.event_name != 'pull_request' && (github.ref_type == 'tag' || github.ref_name == github.event.repository.default_branch) }}
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME || secrets.DOCKERHUB_NAME }}
+      DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || secrets.DOCKERHUB_USERNAME || secrets.DOCKERHUB_NAME }}
     steps:
       - uses: actions/checkout@v7
 
@@ -101,7 +101,7 @@ jobs:
         if: env.PUBLISH == 'true' && env.DOCKERHUB_USERNAME != ''
         uses: docker/login-action@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Tags and labels
@@ -146,7 +146,7 @@ jobs:
         if: env.PUBLISH == 'true' && env.DOCKERHUB_USERNAME != '' && matrix.image == 'freegma' && github.ref_type == 'tag'
         uses: peter-evans/dockerhub-description@v5
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKERHUB_NAMESPACE }}/freegma
           short-description: ${{ matrix.description }}
