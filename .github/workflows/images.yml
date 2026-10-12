@@ -77,9 +77,13 @@ jobs:
         run: |
           owner="${GITHUB_REPOSITORY_OWNER,,}"
           images="ghcr.io/${owner}/${{ matrix.image }}"
-          if [ -n "$DOCKERHUB_USERNAME" ]; then
-            images="${images}"$'\n'"docker.io/${DOCKERHUB_NAMESPACE,,}/${{ matrix.image }}"
+          # Secrets pasted with a trailing newline/space would break the tag.
+          ns="$(printf '%s' "$DOCKERHUB_NAMESPACE" | tr -d '[:space:]')"
+          ns="${ns,,}"
+          if [ -n "$ns" ]; then
+            images="${images}"$'\n'"docker.io/${ns}/${{ matrix.image }}"
           fi
+          echo "dockerhub_ns=${ns}" >> "$GITHUB_OUTPUT"
           {
             echo "images<<EOF"
             echo "$images"
@@ -148,6 +152,6 @@ jobs:
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ env.DOCKERHUB_NAMESPACE }}/freegma
+          repository: ${{ steps.names.outputs.dockerhub_ns }}/freegma
           short-description: ${{ matrix.description }}
           readme-filepath: ./docs/DOCKERHUB.md
