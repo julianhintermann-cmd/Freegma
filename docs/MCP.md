@@ -43,6 +43,11 @@ Sources: [help.penpot.app/mcp](https://help.penpot.app/mcp/) ·
 1. **Enable MCP for your account and get the key**
    - CLI: `make mcp-token` (stores the key as `FREEGMA_MCP_TOKEN` in `.env`), or
    - UI: *Your account → Integrations → MCP Server → Status: enabled → Generate key*.
+     Below the server URL, Freegma's **Connect your AI client** box shows the
+     Claude Code command and the JSON for Claude Desktop / Cursor with your key
+     filled in, each with a **Copy** button. After *Regenerate MCP key* it
+     switches to the new key at once (Penpot's own URL field updates only after
+     a reload).
 2. **Add the server to your client** (URL = `https://<host>/mcp/stream?userToken=<key>`):
 
    | Client | How |

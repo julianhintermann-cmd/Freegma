@@ -12,7 +12,9 @@
  *   3. shows the "Freegma - based on Penpot (MPL-2.0)" attribution on the
  *      login, dashboard and settings screens,
  *   4. hardens Penpot's plugin sandbox against the SES "override mistake"
- *      (see sesOverrideTaming below).
+ *      (see sesOverrideTaming below),
+ *   5. adds ready-to-paste MCP client configs (with the user's key) to
+ *      Settings -> Integrations.
  *
  * Penpot internals this relies on are listed in docs/BRANDING.md.
  */
@@ -213,6 +215,160 @@
                      route === "dashboard" || route === "settings");
   }
 
+  // ------------------------------------------------------ MCP client setup --
+  // Settings -> Integrations shows the personal MCP server URL (with the
+  // user's key) in a read-only input. Below it we add ready-to-paste client
+  // configs built from exactly that URL, so nobody has to assemble JSON by
+  // hand. Nothing is stored or sent anywhere; the key never leaves the page.
+  var MCP_BOX_ID = "freegma-mcp-config";
+  var mcpTab = "claude-code";
+  var mcpUrlShown = null;
+  var mcpFreshKey = null;
+
+  function mcpSnippets(url) {
+    return [
+      {
+        id: "claude-code",
+        label: "Claude Code",
+        hint: "Run once in a terminal. --scope user makes it available in every project.",
+        code: 'claude mcp add --transport http --scope user freegma "' + url + '"',
+      },
+      {
+        id: "claude-desktop",
+        label: "Claude Desktop",
+        hint: "Settings → Developer → Edit Config (claude_desktop_config.json), then restart Claude. Needs Node.js.",
+        code: JSON.stringify({
+          mcpServers: { freegma: { command: "npx", args: ["-y", "mcp-remote@0.14.3", url] } },
+        }, null, 2),
+      },
+      {
+        id: "cursor",
+        label: "Cursor & others",
+        hint: "For clients that speak remote / streamable-HTTP MCP, e.g. ~/.cursor/mcp.json.",
+        code: JSON.stringify({ mcpServers: { freegma: { url: url } } }, null, 2),
+      },
+    ];
+  }
+
+  function copyText(text, button) {
+    var done = function () {
+      var old = button.getAttribute("data-label") || button.textContent;
+      button.setAttribute("data-label", old);
+      button.textContent = "Copied";
+      setTimeout(function () { button.textContent = old; }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    } else {
+      fallbackCopy(text); done();
+    }
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch (e) { /* ignore */ }
+    document.body.removeChild(ta);
+  }
+
+  function ensureMcpStyles() {
+    if (document.getElementById("freegma-mcp-style")) return;
+    var css =
+      "#" + MCP_BOX_ID + "{margin-top:16px;padding:16px;border-radius:8px;border:1px solid var(--color-background-quaternary,#2e3434);background:var(--color-background-tertiary,#212426);font-size:12px;color:var(--color-foreground-secondary,#8f9da3)}" +
+      "#" + MCP_BOX_ID + " h4{margin:0 0 4px;font-size:14px;font-weight:500;color:var(--color-foreground-primary,#fff)}" +
+      "#" + MCP_BOX_ID + " .fg-tabs{display:flex;gap:4px;margin:12px 0 8px;flex-wrap:wrap}" +
+      "#" + MCP_BOX_ID + " .fg-tab{padding:6px 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:inherit;font:inherit;cursor:pointer}" +
+      "#" + MCP_BOX_ID + " .fg-tab[aria-selected=true]{background:var(--color-background-quaternary,#2e3434);color:var(--color-foreground-primary,#fff);border-color:var(--freegma-accent,#ff8a5c)}" +
+      "#" + MCP_BOX_ID + " pre{position:relative;margin:8px 0 0;padding:12px 12px 12px 12px;border-radius:6px;background:var(--color-background-primary,#18191a);color:var(--color-foreground-primary,#fff);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto}" +
+      "#" + MCP_BOX_ID + " .fg-copy{margin-top:8px;padding:6px 12px;border:none;border-radius:6px;background:var(--freegma-accent,#ff8a5c);color:#1b1311;font:inherit;font-weight:600;cursor:pointer}" +
+      "#" + MCP_BOX_ID + " .fg-warn{margin-top:10px}";
+    var style = document.createElement("style");
+    style.id = "freegma-mcp-style";
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
+
+  function renderMcpBox(box, url) {
+    var snippets = mcpSnippets(url);
+    var current = snippets.filter(function (s) { return s.id === mcpTab; })[0] || snippets[0];
+    while (box.firstChild) box.removeChild(box.firstChild);
+
+    var title = document.createElement("h4");
+    title.textContent = "Connect your AI client";
+    box.appendChild(title);
+    var intro = document.createElement("div");
+    intro.textContent = "Ready-to-paste configuration with your personal MCP key.";
+    box.appendChild(intro);
+
+    var tabs = document.createElement("div");
+    tabs.className = "fg-tabs";
+    tabs.setAttribute("role", "tablist");
+    snippets.forEach(function (s) {
+      var tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "fg-tab";
+      tab.setAttribute("role", "tab");
+      tab.setAttribute("aria-selected", String(s.id === current.id));
+      tab.textContent = s.label;
+      tab.addEventListener("click", function () { mcpTab = s.id; renderMcpBox(box, url); });
+      tabs.appendChild(tab);
+    });
+    box.appendChild(tabs);
+
+    var hint = document.createElement("div");
+    hint.textContent = current.hint;
+    box.appendChild(hint);
+    var pre = document.createElement("pre");
+    pre.textContent = current.code;
+    box.appendChild(pre);
+    var copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "fg-copy";
+    copy.textContent = "Copy";
+    copy.addEventListener("click", function () { copyText(current.code, copy); });
+    box.appendChild(copy);
+    var warn = document.createElement("div");
+    warn.className = "fg-warn";
+    warn.textContent = "Treat this like a password: anyone with it can edit the file open in your Freegma tab. Regenerate the key above if it leaks.";
+    box.appendChild(warn);
+  }
+
+  function updateMcpConfig() {
+    var input = null;
+    var inputs = document.querySelectorAll("input[readonly]");
+    for (var i = 0; i < inputs.length; i++) {
+      var v = inputs[i].value || "";
+      if (/\/mcp\/stream\?userToken=/.test(v)) { if (!input) input = inputs[i]; continue; }
+      // "MCP key regenerated/created" dialog: Penpot shows the new key there,
+      // but keeps the old server URL on the page until it is reloaded.
+      var modal = inputs[i].closest('[class*="modal"]');
+      if (modal && /MCP/.test(modal.textContent || "") && /^[A-Za-z0-9._~-]{40,}$/.test(v)) mcpFreshKey = v;
+    }
+    var url = input ? input.value : null;
+    if (url && mcpFreshKey) url = url.replace(/userToken=[^&]*/, "userToken=" + mcpFreshKey);
+    var box = document.getElementById(MCP_BOX_ID);
+    if (!url) {
+      if (box) box.parentNode.removeChild(box);
+      mcpUrlShown = null;
+      return;
+    }
+    if (box && mcpUrlShown === url && document.body.contains(box)) return;
+    var anchor = input.closest('[class*="notification-pill"]') || input.closest('[class*="input-copy"]') || input.parentNode;
+    if (!box) {
+      ensureMcpStyles();
+      box = document.createElement("section");
+      box.id = MCP_BOX_ID;
+    }
+    if (box.previousSibling !== anchor) anchor.parentNode.insertBefore(box, anchor.nextSibling);
+    mcpUrlShown = url;
+    renderMcpBox(box, url);
+  }
+
   // ----------------------------------------------------------------- boot --
   function onReady() {
     applyLogos();
@@ -242,7 +398,13 @@
   });
   window.addEventListener("hashchange", onNavigate);
   window.addEventListener("popstate", onNavigate);
-  setInterval(onNavigate, 1000);
+  setInterval(function () {
+    onNavigate();
+    // Integrations page: (re)build the MCP client configs, also after the
+    // key was regenerated. Cheap no-op on every other route.
+    if (currentRoute() === "settings") updateMcpConfig();
+    else if (mcpUrlShown) updateMcpConfig();
+  }, 1000);
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", onReady);

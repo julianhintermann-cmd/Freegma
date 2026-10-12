@@ -17,6 +17,10 @@ All notable changes to Freegma. Versions refer to the Freegma images
 - Penpot's plugin sandbox (SES) runs with `overrideTaming: severe`, so
   scripts overriding frozen built-ins no longer crash the workspace
   (`FREEGMA_SES_OVERRIDE_TAMING`, default `severe`; `off` disables both fixes)
+- *Integrations* page: "Connect your AI client" box with ready-to-paste
+  configs (Claude Code command, Claude Desktop JSON via `mcp-remote`, Cursor
+  JSON) filled in with the user's MCP key, with copy buttons; follows a
+  regenerated key immediately
 - Freegma logo on Penpot's error and 404 pages
 - NAS: ready-to-run compose files for a plain NAS (`deploy/nas`) and behind
   Nginx Proxy Manager (`deploy/nas-npm`); assets live in `/volume2/docker/freegma/assets`

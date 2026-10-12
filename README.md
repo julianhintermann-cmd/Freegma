@@ -307,6 +307,11 @@ password.** Anyone who has it can drive the Penpot tab you have open.
 
 ### 2. Add Freegma to Claude
 
+**Easiest:** open *Your account → Integrations* in Freegma. Below the server
+URL, the **Connect your AI client** box has ready-to-paste configs for Claude
+Code, Claude Desktop and Cursor-style clients, already filled in with your
+key. Pick a tab, click **Copy** and paste. The same configs by hand:
+
 **Claude Code** (runs on your machine, so it reaches LAN/Tailscale hosts directly):
 
 ```bash
