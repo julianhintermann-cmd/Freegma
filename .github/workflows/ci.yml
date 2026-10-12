@@ -40,6 +40,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
             -e FREEGMA_DOMAIN=freegma.example.com -e FREEGMA_TLS=internal \
+            -e FREEGMA_PUBLIC_URI=https://freegma.example.com \
             caddy:2.11.7-alpine caddy validate --config /etc/caddy/Caddyfile
 
       - name: Branding proxy renders a valid nginx config

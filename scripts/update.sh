@@ -17,7 +17,7 @@ while [ $# -gt 0 ]; do
         --freegma) NEW_FREEGMA="$2"; shift 2 ;;
         --yes|-y) YES=1; shift ;;
         --skip-backup) SKIP_BACKUP=1; shift ;;
-        -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,10p' "$FREEGMA_ROOT/scripts/update.sh"; exit 0 ;;
         *) NEW_PENPOT="$1"; shift ;;
     esac
 done
@@ -38,13 +38,21 @@ echo "    Freegma: $OLD_FREEGMA -> $NEW_FREEGMA"
 echo "    Release notes: https://github.com/penpot/penpot/releases/tag/$NEW_PENPOT"
 
 info "Pre-flight: checking that the images exist"
+check_image() {
+    local out
+    if ! out="$(docker manifest inspect "$1" 2>&1 >/dev/null)"; then
+        case "$out" in
+            *toomanyrequests*) die "Docker Hub rate limit while checking $1 - run 'docker login' or retry later" ;;
+            *"no such manifest"*|*"not found"*|*manifest*unknown*) die "image $1 does not exist" ;;
+            *) die "cannot check $1: ${out:-unknown error}" ;;
+        esac
+    fi
+}
 for img in frontend backend exporter mcp; do
-    docker manifest inspect "penpotapp/$img:$NEW_PENPOT" >/dev/null 2>&1 \
-        || die "image penpotapp/$img:$NEW_PENPOT not found"
+    check_image "penpotapp/$img:$NEW_PENPOT"
 done
 if [ "$NEW_FREEGMA" != "$OLD_FREEGMA" ]; then
-    docker manifest inspect "$FREEGMA_IMAGE:$NEW_FREEGMA" >/dev/null 2>&1 \
-        || die "image $FREEGMA_IMAGE:$NEW_FREEGMA not found"
+    check_image "$FREEGMA_IMAGE:$NEW_FREEGMA"
 fi
 ok "images available"
 
@@ -65,16 +73,23 @@ else
 fi
 
 rollback() {
+    trap - INT TERM
     warn "update failed - rolling back to Penpot $OLD_PENPOT / Freegma $OLD_FREEGMA"
     env_set PENPOT_VERSION "$OLD_PENPOT"
     env_set FREEGMA_VERSION "$OLD_FREEGMA"
     if [ -n "$BACKUP_PATH" ]; then
-        "$FREEGMA_ROOT/scripts/restore.sh" "$BACKUP_PATH" --yes
+        # NB: set -e is off inside a function called via `cmd || rollback`.
+        "$FREEGMA_ROOT/scripts/restore.sh" "$BACKUP_PATH" --yes \
+            || die "ROLLBACK FAILED - restore manually: scripts/restore.sh '$BACKUP_PATH' --yes"
     else
-        dc up -d && wait_healthy 420 || true
+        { dc up -d && wait_healthy 420; } \
+            || die "ROLLBACK FAILED - old versions are back in .env; check 'make logs'"
     fi
-    die "update rolled back. Inspect the logs above / 'make logs'."
+    die "update rolled back to Penpot $OLD_PENPOT. Inspect the logs above / 'make logs'."
 }
+
+# From here on, Ctrl-C / SIGTERM also roll back.
+trap rollback INT TERM
 
 info "Switching versions"
 env_set PENPOT_VERSION "$NEW_PENPOT"
@@ -99,4 +114,5 @@ if [ "${FREEGMA_UPDATE_SIMULATE_FAILURE:-0}" = 1 ]; then
     rollback
 fi
 
+trap - INT TERM
 info "Update complete: Penpot $NEW_PENPOT, Freegma $NEW_FREEGMA"

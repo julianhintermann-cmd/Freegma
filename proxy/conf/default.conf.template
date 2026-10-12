@@ -73,7 +73,9 @@ server {
     include /etc/nginx/freegma/login-illustration.conf;
 
     # ---- 1. SPA entry point -------------------------------------------------
-    location ~ ^/(index\.html)?$ {
+    # "/", "/index.html" and single-segment paths such as "/view", which the
+    # Penpot frontend answers with index.html (try_files fallback).
+    location ~ ^/(index\.html|[^/.]+/?)?$ {
         proxy_pass $freegma_upstream;
         proxy_set_header Accept-Encoding "";
         sub_filter_once on;

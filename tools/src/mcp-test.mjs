@@ -13,7 +13,6 @@
 //        - export the frame as PNG (and SVG)
 //
 // Env: FREEGMA_PUBLIC_URI, FREEGMA_TEST_EMAIL, FREEGMA_TEST_PASSWORD,
-//      optional FREEGMA_MCP_TOKEN (otherwise the user's current key is used),
 //      optional FREEGMA_TEST_OUTPUT (default ./output), FREEGMA_TEST_HEADFUL=1
 
 import fs from "node:fs";
@@ -69,9 +68,10 @@ async function main() {
   const file = await api.ensureFile(project.id, SANDBOX);
   ok(`project "${SANDBOX}" ${project.id}, file ${file.id}`);
 
-  let token = process.env.FREEGMA_MCP_TOKEN || "";
+  // Always use the user's *current* key: the browser plugin connects with it,
+  // so the MCP client must use the same one (a stale key from .env would not pair).
   const mcp = await api.ensureMcpKey();
-  if (!token) token = mcp.token;
+  const token = mcp.token;
   ok(`MCP enabled for user (${mcp.created ? "new key created" : "existing key"})`);
 
   // ---- 2. Browser: open the file so the MCP plugin connects ------------------

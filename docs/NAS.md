@@ -58,6 +58,7 @@ FREEGMA_HTTP_REDIRECT_PORT=8080
 FREEGMA_PUBLIC_URI=https://freegma.home.arpa:8443
 ```
 
+Caddy then redirects `http://…:8080` to `https://…:8443` correctly.
 Alternatively, use the NAS's built-in reverse proxy (Option C in the README).
 Point it at `http://127.0.0.1:9001` with `FREEGMA_HTTP_BIND=0.0.0.0`, remove
 `https` from `COMPOSE_PROFILES`, and enable WebSockets in the proxy rule.

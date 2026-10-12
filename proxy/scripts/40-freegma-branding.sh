@@ -19,6 +19,10 @@ STATIC_DIR=/usr/share/freegma/www-static
 WWW=/var/lib/freegma/www
 CONF=/etc/nginx/freegma
 BRAND="${FREEGMA_BRAND_NAME:-Freegma}"
+case "$BRAND" in
+    *'$'*) echo "freegma: warning: '\$' is not allowed in FREEGMA_BRAND_NAME, removing it"
+           BRAND="$(printf '%s' "$BRAND" | tr -d '$')" ;;
+esac
 
 mkdir -p "$WWW" "$CONF"
 rm -rf "${WWW:?}"/*

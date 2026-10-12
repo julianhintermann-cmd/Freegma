@@ -20,3 +20,4 @@ Thumbs.db
 
 # Exported CA certificates
 *.crt
+branding.before-restore.*/

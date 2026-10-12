@@ -2,8 +2,8 @@
 # -----------------------------------------------------------------------------
 # Applied by the branding proxy to Penpot's translation bundles (/js/translation.*.js).
 # Format: <exact text in Penpot><TAB><replacement>.  {{BRAND}} = FREEGMA_BRAND_NAME.
-# Lines starting with # are comments. '$' is not allowed. Matching is literal and
-# case-sensitive. Disable all of them with FREEGMA_REBRAND_TEXT=false.
+# Lines starting with # are comments. '$' is not allowed. Matching is literal but
+# case-insensitive (nginx sub_filter). Disable all with FREEGMA_REBRAND_TEXT=false.
 #
 # Deliberately NOT replaced: texts that refer to the Penpot project itself
 # ("About Penpot", changelog, community, Kaleidos, the .penpot file format).

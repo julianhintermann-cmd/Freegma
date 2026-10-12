@@ -38,7 +38,7 @@ x-penpot-body-size: &penpot-body-size
   PENPOT_HTTP_SERVER_MAX_MULTIPART_BODY_SIZE: ${PENPOT_HTTP_SERVER_MAX_BODY_SIZE:-367001600}
 
 x-penpot-secret-key: &penpot-secret-key
-  PENPOT_SECRET_KEY: ${PENPOT_SECRET_KEY:?Set PENPOT_SECRET_KEY in .env (run scripts/init-env.sh)}
+  PENPOT_SECRET_KEY: ${PENPOT_SECRET_KEY:?Set PENPOT_SECRET_KEY in .env (run make init)}
 
 x-penpot-database: &penpot-database
   PENPOT_DATABASE_URI: postgresql://penpot-postgres/${POSTGRES_DB:-penpot}
@@ -86,11 +86,16 @@ services:
       freegma:
         condition: service_healthy
     ports:
-      - "${FREEGMA_HTTPS_BIND:-0.0.0.0}:${FREEGMA_HTTPS_PORT:-443}:443"
-      - "${FREEGMA_HTTPS_BIND:-0.0.0.0}:${FREEGMA_HTTP_REDIRECT_PORT:-80}:80"
+      # Same port inside and outside, so Caddy's HTTP->HTTPS redirect keeps
+      # a non-standard port (e.g. 8443).
+      - "${FREEGMA_HTTPS_BIND:-0.0.0.0}:${FREEGMA_HTTPS_PORT:-443}:${FREEGMA_HTTPS_PORT:-443}"
+      - "${FREEGMA_HTTPS_BIND:-0.0.0.0}:${FREEGMA_HTTP_REDIRECT_PORT:-80}:${FREEGMA_HTTP_REDIRECT_PORT:-80}"
     environment:
       FREEGMA_DOMAIN: ${FREEGMA_DOMAIN:?Set FREEGMA_DOMAIN in .env}
       FREEGMA_TLS: ${FREEGMA_TLS:-internal}
+      FREEGMA_PUBLIC_URI: ${FREEGMA_PUBLIC_URI}
+      FREEGMA_HTTPS_PORT: ${FREEGMA_HTTPS_PORT:-443}
+      FREEGMA_HTTP_REDIRECT_PORT: ${FREEGMA_HTTP_REDIRECT_PORT:-80}
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -302,7 +307,7 @@ services:
       FREEGMA_PUBLIC_URI: ${FREEGMA_PUBLIC_URI}
       FREEGMA_BRAND_NAME: ${FREEGMA_BRAND_NAME:-Freegma}
       FREEGMA_REBRAND_TEXT: ${FREEGMA_REBRAND_TEXT:-true}
-      FREEGMA_MCP_TOKEN: ${FREEGMA_MCP_TOKEN:-}
+      FREEGMA_SHOW_ATTRIBUTION: ${FREEGMA_SHOW_ATTRIBUTION:-true}
       # Passed through from the calling shell (the Makefile prompts for them).
       FREEGMA_TEST_EMAIL: ${FREEGMA_TEST_EMAIL:-}
       FREEGMA_TEST_PASSWORD: ${FREEGMA_TEST_PASSWORD:-}

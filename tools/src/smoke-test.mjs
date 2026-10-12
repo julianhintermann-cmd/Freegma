@@ -22,7 +22,9 @@ const BRAND = process.env.FREEGMA_BRAND_NAME || "Freegma";
 const EMAIL = process.env.FREEGMA_TEST_EMAIL || "";
 const PASSWORD = process.env.FREEGMA_TEST_PASSWORD || "";
 const BROWSER = process.env.FREEGMA_SMOKE_BROWSER !== "0";
-const REBRAND_TEXT = (process.env.FREEGMA_REBRAND_TEXT || "true") !== "false";
+const isTrue = (v, d) => ["1", "true", "yes", "on"].includes(String(v ?? d).toLowerCase());
+const REBRAND_TEXT = isTrue(process.env.FREEGMA_REBRAND_TEXT, "true");
+const SHOW_ATTRIBUTION = isTrue(process.env.FREEGMA_SHOW_ATTRIBUTION, "true");
 
 let failures = 0;
 function check(cond, msg) {
@@ -62,7 +64,10 @@ async function main() {
 
   if (REBRAND_TEXT) {
     const tr = await get(`/js/translation.en.js${versionMatch ? `?version=${versionMatch[1]}` : ""}`);
-    check(tr.status === 200 && tr.text.includes(`- ${BRAND}"`), "UI texts rebranded (translation.en.js)");
+    check(tr.status === 200, "translation bundle served");
+    // Soft check: the user may have trimmed branding/text-replacements.tsv.
+    if (tr.text.includes(BRAND)) ok("UI texts rebranded (translation.en.js)");
+    else console.log(`  warn no "${BRAND}" in translation.en.js - check branding/text-replacements.tsv`);
   }
 
   step("Security checks");
@@ -106,7 +111,9 @@ async function main() {
       }));
       check(state.swapped >= 3, `Penpot logo symbols replaced (${state.swapped})`);
       check(state.title.includes(BRAND), `window title "${state.title}"`);
-      check(!!state.badge && /Penpot/.test(state.badge), `attribution visible ("${state.badge || "-"}")`);
+      if (SHOW_ATTRIBUTION) {
+        check(!!state.badge && /Penpot/.test(state.badge), `attribution visible ("${state.badge || "-"}")`);
+      }
     } finally {
       await browser.close();
     }

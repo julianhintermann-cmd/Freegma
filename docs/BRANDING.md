@@ -7,8 +7,9 @@ front of it and adjusts two kinds of responses on the fly.
 
 ## What you can change
 
-Everything is in `branding/`. After editing, run `make branding`; the
-proxy re-renders its assets at start-up, and nothing else restarts.
+Everything is in `branding/`. After editing files there or any
+`FREEGMA_*` setting in `.env`, run `make branding`. This recreates only the
+proxy, which re-renders its assets at start-up.
 
 | File | Used for | Notes |
 |---|---|---|
@@ -60,8 +61,9 @@ dark text on the accent; in the light theme, white text.
 ### UI texts
 
 `text-replacements.tsv` holds exact strings as they appear in Penpot's
-translation bundles. Matching is literal and case-sensitive; `$` is not
-allowed (nginx would treat it as a variable). Texts that are *about* Penpot
+translation bundles. Matching is literal but **case-insensitive** (nginx
+`sub_filter`), so `- Penpot"` also matches `- penpot"`; `$` is not allowed
+(nginx would treat it as a variable). Texts that are *about* Penpot
 (changelog, "About Penpot", community, the `.penpot` file format) are left
 alone on purpose. To find a string:
 

@@ -16,7 +16,8 @@
 | `tools` *(on demand)* | `ghcr.io/julianhintermann-cmd/freegma-tools` | Smoke/MCP tests (Playwright 1.63, MCP SDK 1.32.1) | host network | – |
 
 Startup order (all `condition: service_healthy`): postgres + valkey →
-backend → exporter + mcp → frontend → freegma → caddy.
+backend; valkey → exporter; mcp (no dependencies); backend + exporter + mcp →
+frontend → freegma → caddy.
 
 Not included: Penpot's `admin-console` ("Nitrate", organisation and licence
 management). Freegma does not enable the `admin-console` flag.

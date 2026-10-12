@@ -51,7 +51,10 @@ c_public="$(http_code "$PUBLIC_URI/freegma/healthz")"
 # The public URL may not resolve on the host itself; report it, don't fail on it.
 
 disk="$(df -P "$FREEGMA_ROOT" | awk 'NR==2 {print $5}')"
-last_backup="$(ls -1d "$(env_get BACKUP_DIR ./backups)"/daily/freegma-* 2>/dev/null | sort | tail -n1 | xargs -r basename || true)"
+backup_dir="$(env_get BACKUP_DIR ./backups)"
+newest="$(ls -1d "$backup_dir"/daily/freegma-* 2>/dev/null | sort | tail -n1 || true)"
+last_backup=""
+[ -n "$newest" ] && last_backup="$(basename "$newest")"
 
 if [ "$JSON" = 1 ]; then
     printf '{"status":"%s","penpot_version":"%s","freegma_version":"%s","services":{' \
@@ -62,7 +65,7 @@ if [ "$JSON" = 1 ]; then
         printf '"%s":"%s"' "$s" "${svc_state[$s]}"
     done
     printf '},"http":{"proxy":%s,"backend":%s,"public":%s},"disk_used":"%s","last_backup":"%s"}\n' \
-        "$c_proxy" "$c_ready" "$c_public" "$disk" "${last_backup:-none}"
+        "$((10#$c_proxy))" "$((10#$c_ready))" "$((10#$c_public))" "$disk" "${last_backup:-none}"
 else
     echo "Freegma $(env_get FREEGMA_VERSION) / Penpot $(env_get PENPOT_VERSION)"
     for s in $EXPECTED; do printf '  %-16s %s\n' "$s" "${svc_state[$s]}"; done

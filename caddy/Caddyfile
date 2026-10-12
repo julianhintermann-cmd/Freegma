@@ -10,6 +10,16 @@
 {
 	# Admin API only inside the container (used by the healthcheck).
 	admin localhost:2019
+	# Listen on the same ports that are published on the host.
+	http_port {$FREEGMA_HTTP_REDIRECT_PORT:80}
+	https_port {$FREEGMA_HTTPS_PORT:443}
+	# Caddy's automatic redirect drops non-standard ports (e.g. :8443), so
+	# redirect explicitly to the public URL instead (see the http:// site).
+	auto_https disable_redirects
+}
+
+http://{$FREEGMA_DOMAIN} {
+	redir {$FREEGMA_PUBLIC_URI}{uri} permanent
 }
 
 {$FREEGMA_DOMAIN} {

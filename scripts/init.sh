@@ -14,7 +14,7 @@ while [ $# -gt 0 ]; do
         --https-port) HTTPS_PORT="$2"; shift 2 ;;
         --http-only) HTTP_ONLY=1; shift ;;
         --force) FORCE=1; shift ;;
-        -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,9p' "$FREEGMA_ROOT/scripts/init.sh"; exit 0 ;;
         *) die "unknown option: $1" ;;
     esac
 done

@@ -4,8 +4,8 @@
 #   scripts/restore.sh <backup-dir> [--with-env] [--yes]
 #
 # Replaces the current database and assets with the backup's content.
-# --with-env : also restore .env from the backup (needed on a new machine:
-#              PENPOT_SECRET_KEY signs sessions and MCP keys).
+# --with-env : also restore .env and branding/ from the backup (needed on a
+#              new machine: PENPOT_SECRET_KEY signs sessions and MCP keys).
 # Works on a running stack, a stopped one, or a completely fresh install
 # (run `make init` first, or use --with-env).
 . "$(dirname "$0")/lib.sh"
@@ -15,11 +15,12 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --with-env) WITH_ENV=1; shift ;;
         --yes|-y) YES=1; shift ;;
-        -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+        -h|--help) sed -n '2,12p' "$FREEGMA_ROOT/scripts/restore.sh"; exit 0 ;;
         *) SRC="$1"; shift ;;
     esac
 done
 [ -n "$SRC" ] || die "usage: $0 <backup-dir> [--with-env] [--yes]"
+SRC="$(abs_path "$SRC")"
 [ -d "$SRC" ] || die "backup not found: $SRC"
 SRC="$(cd "$SRC" && pwd)"
 for f in database.dump assets.tar.gz MANIFEST; do
@@ -32,23 +33,32 @@ ok "checksums match"
 sed 's/^/    /' "$SRC/MANIFEST"
 
 if [ "$WITH_ENV" = 1 ]; then
-    if [ -f .env ]; then cp .env ".env.before-restore.$(date +%s)"; fi
-    cp "$SRC/env" .env && chmod 600 .env
-    ok ".env restored from backup (previous one saved as .env.before-restore.*)"
-fi
-require_env_file
-
-backup_version="$(grep '^penpot_version=' "$SRC/MANIFEST" | cut -d= -f2)"
-current_version="$(env_get PENPOT_VERSION)"
-if [ -n "$backup_version" ] && [ "$backup_version" != "$current_version" ]; then
-    warn "backup was taken with Penpot $backup_version, .env uses $current_version."
-    warn "Restoring into an older Penpot than the backup is not supported; newer is fine (migrations run on start)."
+    [ -f "$SRC/env" ] || die "backup has no env file - cannot use --with-env"
+else
+    require_env_file
+    backup_version="$(grep '^penpot_version=' "$SRC/MANIFEST" | cut -d= -f2)"
+    current_version="$(env_get PENPOT_VERSION)"
+    if [ -n "$backup_version" ] && [ "$backup_version" != "$current_version" ]; then
+        warn "backup was taken with Penpot $backup_version, .env uses $current_version."
+        warn "Restoring into an older Penpot than the backup is not supported; newer is fine (migrations run on start)."
+    fi
 fi
 
 if [ "$YES" != 1 ]; then
     [ -t 0 ] || die "refusing to restore without --yes (no TTY)"
     read -r -p "This REPLACES all Freegma data with the backup. Type 'restore' to continue: " answer
     [ "$answer" = restore ] || die "aborted"
+fi
+
+if [ "$WITH_ENV" = 1 ]; then
+    if [ -f .env ]; then cp .env ".env.before-restore.$(date +%s)"; fi
+    cp "$SRC/env" .env && chmod 600 .env
+    ok ".env restored from backup (previous one saved as .env.before-restore.*)"
+    if [ -f "$SRC/branding.tar.gz" ]; then
+        [ -d branding ] && cp -a branding "branding.before-restore.$(date +%s)"
+        rm -rf branding && tar -xzf "$SRC/branding.tar.gz"
+        ok "branding/ restored from backup"
+    fi
 fi
 
 PG_USER="$(env_get POSTGRES_USER penpot)"

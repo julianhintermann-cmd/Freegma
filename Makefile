@@ -5,10 +5,15 @@ SHELL := /usr/bin/env bash
 COMPOSE := docker compose
 TOOLS := $(COMPOSE) run --rm tools
 
+# Boolean make variables: only 1/true/yes/y count as "on" (ROTATE=0 is off).
+on = $(filter 1 true yes y TRUE YES,$(1))
+
 # Prompt for a Freegma login (used by smoke / mcp-* targets) unless given:
 #   make mcp-test EMAIL=you@example.com PASSWORD=...
+# Values are read from the environment ($$EMAIL), never pasted into the shell
+# command by make, so passwords may contain any character.
 define ask_login
-	email="$(EMAIL)"; pass="$(PASSWORD)"; \
+	email="$${EMAIL:-}"; pass="$${PASSWORD:-}"; \
 	[ -n "$$email" ] || email="$$(grep -E '^FREEGMA_MCP_USER_EMAIL=' .env | cut -d= -f2-)"; \
 	[ -n "$$email" ] || read -r -p "Freegma e-mail: " email; \
 	[ -n "$$pass" ] || { read -r -s -p "Password for $$email: " pass; echo; }; \
@@ -29,13 +34,13 @@ help: ## Show this help
 # ---- setup -------------------------------------------------------------------
 .PHONY: init
 init: ## Create .env with fresh secrets (DOMAIN=..., HTTP_ONLY=1 for no HTTPS)
-	@./scripts/init.sh $(if $(DOMAIN),--domain $(DOMAIN)) $(if $(HTTPS_PORT),--https-port $(HTTPS_PORT)) $(if $(HTTP_ONLY),--http-only)
+	@./scripts/init.sh $(if $(DOMAIN),--domain "$$DOMAIN") $(if $(HTTPS_PORT),--https-port "$$HTTPS_PORT") $(if $(call on,$(HTTP_ONLY)),--http-only)
 
 .PHONY: admin user
 admin: user ## Create the first account (EMAIL=... NAME=...)
 user: ## Create a user account (EMAIL=... NAME=...); registration is disabled
-	@[ -n "$(EMAIL)" ] || { echo "usage: make user EMAIL=you@example.com NAME='Full Name'"; exit 2; }
-	@./scripts/create-user.sh "$(EMAIL)" "$(NAME)"
+	@[ -n "$${EMAIL:-}" ] || { echo "usage: make user EMAIL=you@example.com NAME='Full Name'"; exit 2; }
+	@./scripts/create-user.sh "$$EMAIL" "$${NAME:-}"
 
 # ---- lifecycle ---------------------------------------------------------------
 .PHONY: up
@@ -69,14 +74,14 @@ build: ## Build the Freegma and tools images locally
 	$(COMPOSE) --profile tools build tools
 
 .PHONY: branding
-branding: ## Apply changes in ./branding (restarts only the branding proxy)
-	$(COMPOSE) restart freegma
+branding: ## Apply changes in ./branding and FREEGMA_* settings (recreates only the proxy)
+	$(COMPOSE) up -d --force-recreate --no-deps freegma
 	@$(COMPOSE) logs --tail=5 freegma | grep 'freegma:' || true
 
 # ---- checks ------------------------------------------------------------------
 .PHONY: health
 health: ## Health report (JSON=1 for machine-readable)
-	@./scripts/healthcheck.sh $(if $(JSON),--json)
+	@./scripts/healthcheck.sh $(if $(call on,$(JSON)),--json)
 
 .PHONY: smoke
 smoke: ## Smoke test incl. login + browser check (EMAIL=/PASSWORD= optional)
@@ -89,7 +94,7 @@ branding-check: ## Verify the branding still applies (run after Penpot upgrades)
 # ---- MCP ---------------------------------------------------------------------
 .PHONY: mcp-token
 mcp-token: ## Enable MCP for a user + print Claude configs (ROTATE=1 = new key)
-	@$(ask_login) FREEGMA_MCP_ROTATE=$(if $(ROTATE),1,0) $(TOOLS) mcp-setup
+	@$(ask_login) FREEGMA_MCP_ROTATE=$(if $(call on,$(ROTATE)),1,0) $(TOOLS) mcp-setup
 
 .PHONY: mcp-test
 mcp-test: ## End-to-end MCP test in project "MCP Sandbox" (output: tests/output/)
@@ -109,12 +114,12 @@ backup: ## Back up database, assets and config (rotation 7 daily / 4 weekly)
 .PHONY: restore
 restore: ## Restore a backup (BACKUP=backups/daily/freegma-..., WITH_ENV=1 on a new host)
 	@[ -n "$(BACKUP)" ] || { echo "usage: make restore BACKUP=backups/daily/freegma-YYYYmmdd-HHMMSS"; ls -1d backups/*/freegma-* 2>/dev/null | tail -n 10; exit 2; }
-	@./scripts/restore.sh "$(BACKUP)" $(if $(WITH_ENV),--with-env) $(if $(YES),--yes)
+	@./scripts/restore.sh "$$BACKUP" $(if $(call on,$(WITH_ENV)),--with-env) $(if $(call on,$(YES)),--yes)
 
 .PHONY: update
 update: ## Backup + upgrade Penpot (VERSION=x.y.z) with smoke test & auto-rollback
-	@./scripts/update.sh $(VERSION) $(if $(FREEGMA),--freegma $(FREEGMA)) $(if $(YES),--yes)
+	@./scripts/update.sh $(if $(VERSION),"$$VERSION") $(if $(FREEGMA),--freegma "$$FREEGMA") $(if $(call on,$(YES)),--yes)
 
 .PHONY: cron
 cron: ## Print the crontab line for daily backups
-	@echo "15 3 * * * cd $(CURDIR) && mkdir -p backups && ./scripts/backup.sh >> backups/backup.log 2>&1"
+	@echo "15 3 * * * cd '$(CURDIR)' && mkdir -p backups && ./scripts/backup.sh >> backups/backup.log 2>&1"

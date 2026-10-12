@@ -71,8 +71,8 @@
   function rebrandTitle() {
     var title = document.title || "";
     var next = title
-      .replace(/^Penpot(\s[|-]\s.*)?$/, BRAND)
-      .replace(/(\s[-|–]\s)Penpot$/, "$1" + BRAND);
+      .replace(/^Penpot(\s[|-]\s.*)?$/, function () { return BRAND; })
+      .replace(/(\s[-|–]\s)Penpot$/, function (_, sep) { return sep + BRAND; });
     if (next !== title) document.title = next;
   }
 
@@ -151,7 +151,8 @@
   var lastRoute = null;
   function onNavigate() {
     var route = currentRoute();
-    if (route === lastRoute) return;
+    // Re-run until the badge exists (document.body may not be ready yet).
+    if (route === lastRoute && (badge || !F.showAttribution)) return;
     lastRoute = route;
     updateBadge();
     rebrandTitle();

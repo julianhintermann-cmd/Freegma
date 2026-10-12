@@ -21,7 +21,11 @@ PG_DB="$(env_get POSTGRES_DB penpot)"
 
 case "$BACKUP_DIR" in /*) ;; *) BACKUP_DIR="$FREEGMA_ROOT/${BACKUP_DIR#./}" ;; esac
 mkdir -p "$BACKUP_DIR/daily" "$BACKUP_DIR/weekly"
-chmod 700 "$BACKUP_DIR"
+chmod 700 "$BACKUP_DIR" 2>/dev/null || warn "could not chmod 700 $BACKUP_DIR (network share?) - protect it yourself, it contains secrets"
+case "$KEEP_DAILY" in ''|*[!0-9]*|0) KEEP_DAILY=1 ;; esac
+case "$KEEP_WEEKLY" in ''|*[!0-9]*|0) KEEP_WEEKLY=1 ;; esac
+# Leftovers of interrupted runs
+find "$BACKUP_DIR" -maxdepth 1 -name '.tmp-freegma-*' -mmin +120 -exec rm -rf {} + 2>/dev/null || true
 
 # Only one backup at a time.
 exec 9>"$BACKUP_DIR/.lock"

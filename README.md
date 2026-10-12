@@ -69,7 +69,7 @@ Updating Penpot is a version bump: `make update VERSION=x.y.z`.
 | **Penpot 2.18.3** | Official images (`frontend`, `backend`, `exporter`, `mcp`), unmodified, pinned. |
 | **Branding without a fork** | A small proxy swaps logo, favicon, accent colour, login artwork and selected UI texts at delivery time. Edit everything in `branding/`. |
 | **Built-in MCP server** | Penpot's official MCP server in multi-user mode at `https://<your-host>/mcp/stream`. Works with Claude Code, Claude Desktop and other MCP clients. |
-| **Private by default** | Public sign-up is disabled. Accounts are created by the admin. Only one port is exposed. |
+| **Private by default** | Public sign-up is disabled. Accounts are created by the admin. Only the edge proxy publishes ports (443 + 80 redirect; the plain-HTTP port stays on 127.0.0.1). |
 | **HTTPS** | Caddy with its own local CA (LAN/Tailscale) or Let's Encrypt. Or bring your own reverse proxy. |
 | **Backups** | Database + assets + config + certificates, verified, rotated (7 daily / 4 weekly), cron-ready. |
 | **Restore** | Into the running stack or onto a brand-new machine (`--with-env`). Tested. |
@@ -190,6 +190,7 @@ Everything lives in `.env`, created from [`.env.example`](.env.example) by `make
 | `COMPOSE_PROFILES` | `https` | Optional services: `https` (Caddy), `mailpit` (mail catcher). |
 | `FREEGMA_TLS` | `internal` | `internal` = own CA; an e-mail address = Let's Encrypt. |
 | `FREEGMA_HTTPS_PORT` / `FREEGMA_HTTPS_BIND` | `443` / `0.0.0.0` | Where Caddy listens. Bind to a LAN or Tailscale IP to restrict access. |
+| `FREEGMA_HTTP_REDIRECT_PORT` | `80` | Caddy's HTTP→HTTPS redirect port (must be 80 for Let's Encrypt). |
 | `FREEGMA_HTTP_PORT` / `FREEGMA_HTTP_BIND` | `9001` / `127.0.0.1` | Plain-HTTP port of the branding proxy (for your own reverse proxy). |
 | `FREEGMA_BRAND_NAME` | `Freegma` | Name in titles, texts and attribution. |
 | `FREEGMA_ACCENT_DARK` / `FREEGMA_ACCENT_LIGHT` | *(empty)* | Accent colour overrides for the dark and light UI themes. |
@@ -200,6 +201,8 @@ Everything lives in `.env`, created from [`.env.example`](.env.example) by `make
 | `PENPOT_EXTRA_FLAGS` | `enable-access-tokens` | Extra [Penpot flags](https://help.penpot.app/technical-guide/configuration/), e.g. `enable-smtp`, `enable-webhooks`. |
 | `PENPOT_JVM_OPTS` | *(empty)* | JVM flags for the backend, e.g. `-Xmx1g` on small machines. |
 | `PENPOT_DISABLE_IPV6_LISTEN` | `false` | Set to `true` on hosts with IPv6 disabled (`make init` detects this). |
+| `PENPOT_HTTP_SERVER_MAX_BODY_SIZE` | `367001600` | Upload limit in bytes (350 MiB). |
+| `FREEGMA_TOOLS_HOST_IP` | `127.0.0.1` | Address the test tools use for `FREEGMA_DOMAIN` (set it to the IP Caddy is bound to). |
 | `PENPOT_SMTP_*` | Mailpit | Real e-mail: add `enable-smtp` to `PENPOT_EXTRA_FLAGS` and fill these in. |
 | `FREEGMA_MCP_TOKEN` | *(empty)* | Written by `make mcp-token`. |
 | `BACKUP_DIR` / `BACKUP_KEEP_DAILY` / `BACKUP_KEEP_WEEKLY` | `./backups` / `7` / `4` | Backup target and rotation. Point `BACKUP_DIR` at a NAS share. |
@@ -209,6 +212,7 @@ Penpot flags that Freegma always sets (in `docker-compose.yml`):
 Telemetry is off by default (`PENPOT_TELEMETRY_ENABLED=false`).
 
 After changing `.env`: `make up` (only changed containers are recreated).
+Branding settings (`FREEGMA_*`) are applied with `make branding`.
 
 ## HTTPS and access
 
@@ -248,7 +252,8 @@ DNS challenge instead: build Caddy with your DNS provider's plugin
 
 ### Option C: your own reverse proxy (NPM, Traefik, Synology/UGOS proxy, …)
 
-Remove `https` from `COMPOSE_PROFILES`, set `FREEGMA_HTTP_BIND=0.0.0.0`, and
+Remove `https` from `COMPOSE_PROFILES`, set `FREEGMA_HTTP_BIND=0.0.0.0`, stop
+the bundled Caddy if it was running (`docker compose rm -sf caddy`), and
 point your proxy at `http://<server>:9001`. Requirements for the proxy:
 WebSockets enabled (`/ws/notifications`, `/mcp/ws`), no response buffering
 for `/mcp/stream`, upload limit ≥ 350 MB, and the `X-Forwarded-Proto` header set.
@@ -414,7 +419,9 @@ make restore BACKUP=/mnt/nas/freegma/daily/freegma-… WITH_ENV=1   # on a new m
 A backup contains `database.dump` (pg_dump, verified), `assets.tar.gz`
 (images, fonts, thumbnails), `caddy-data.tar.gz` (certificates and CA),
 `env` (your `.env`, **secret**), `branding.tar.gz`, a `MANIFEST` and
-`SHA256SUMS`. Rotation keeps 7 daily and 4 weekly backups.
+`SHA256SUMS`. Rotation keeps 7 daily and 4 weekly backups. `.env` and
+`branding/` are only restored with `WITH_ENV=1` (previous versions are kept
+as `.env.before-restore.*` / `branding.before-restore.*`).
 
 Set `BACKUP_DIR` to your NAS share or another disk, and schedule it:
 
@@ -520,7 +527,7 @@ No `make`? Every target is a plain script in `scripts/` or a `docker compose` co
 | `penpot-frontend` restarts with `socket() [::]:8080 failed (97: Address family not supported)` | IPv6 is disabled on the host: set `PENPOT_DISABLE_IPV6_LISTEN=true`. |
 | Login page loads but nothing works; CORS errors in the browser console | You opened a different URL than `FREEGMA_PUBLIC_URI`. They must match exactly (scheme, host, port). |
 | Browser certificate warning | Trust the CA (`make ca-cert`) or use Let's Encrypt. |
-| Port 80/443 already in use (NAS web UI, other proxy) | Set `FREEGMA_HTTPS_PORT=8443` (and the public URI to `https://host:8443`), or use Option C. |
+| Port 80/443 already in use (NAS web UI, other proxy) | Set `FREEGMA_HTTPS_PORT=8443`, `FREEGMA_HTTP_REDIRECT_PORT=8080` and `FREEGMA_PUBLIC_URI=https://host:8443`, or use Option C. |
 | Claude: "No Penpot instance connected for user token" | Open a design file in Freegma, keep the tab open, and check the toolbar shows **● MCP**. The key in Claude must be your current key (`make mcp-token`). |
 | Claude: "the Penpot tab appears to be suspended" | Bring the tab to the foreground; add the site to the browser's "always active" list. |
 | Claude Code/Desktop: `self-signed certificate` | Trust the CA system-wide or set `NODE_EXTRA_CA_CERTS`. |
