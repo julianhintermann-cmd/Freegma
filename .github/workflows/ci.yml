@@ -1,0 +1,106 @@
+# Lint + full end-to-end test of the Freegma stack.
+#
+# e2e boots the complete stack (official Penpot images + locally built Freegma
+# images) in HTTP mode, creates a user and runs the same checks you run at
+# home: `make smoke` and `make mcp-test`.
+
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: shellcheck
+        run: |
+          docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.11.0 \
+            -x -S warning scripts/*.sh proxy/scripts/*.sh tools/entrypoint.sh
+
+      - name: docker compose config
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          docker compose --profile https --profile tools --profile mailpit config --quiet
+
+      - name: Caddyfile
+        run: |
+          docker run --rm -v "$PWD/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -e FREEGMA_DOMAIN=freegma.example.com -e FREEGMA_TLS=internal \
+            caddy:2.11.7-alpine caddy validate --config /etc/caddy/Caddyfile
+
+      - name: Branding proxy renders a valid nginx config
+        run: |
+          docker build -f proxy/Dockerfile -t freegma:ci .
+          docker run --rm --entrypoint sh freegma:ci -c \
+            '/docker-entrypoint.sh nginx -t' 2>&1 | tee /tmp/nginx-t.log
+          grep -q "test is successful" /tmp/nginx-t.log
+
+      - name: No secrets committed
+        run: |
+          ! git ls-files | grep -E '(^|/)\.env$'
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: lint
+    timeout-minutes: 40
+    env:
+      FREEGMA_TEST_EMAIL: ci@freegma.test
+      FREEGMA_TEST_PASSWORD: ci-Passw0rd-123
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure (HTTP mode, localhost)
+        run: |
+          ./scripts/init.sh --domain localhost --http-only
+          grep -E '^(FREEGMA_PUBLIC_URI|COMPOSE_PROFILES|PENPOT_VERSION)=' .env
+
+      - name: Build Freegma images
+        run: docker compose --profile tools build freegma tools
+
+      - name: Start stack
+        run: make up
+
+      - name: Create user
+        run: PASSWORD="$FREEGMA_TEST_PASSWORD" ./scripts/create-user.sh "$FREEGMA_TEST_EMAIL" "CI User"
+
+      - name: Smoke test
+        run: make smoke EMAIL="$FREEGMA_TEST_EMAIL" PASSWORD="$FREEGMA_TEST_PASSWORD"
+
+      - name: MCP end-to-end test
+        run: make mcp-test EMAIL="$FREEGMA_TEST_EMAIL" PASSWORD="$FREEGMA_TEST_PASSWORD"
+
+      - name: Backup + restore
+        run: |
+          ./scripts/backup.sh
+          ./scripts/restore.sh "$(ls -1d backups/daily/freegma-* | tail -n1)" --yes
+          make smoke EMAIL="$FREEGMA_TEST_EMAIL" PASSWORD="$FREEGMA_TEST_PASSWORD"
+
+      - name: Health report
+        if: always()
+        run: ./scripts/healthcheck.sh || true
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail=200
+
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-output
+          path: tests/output/
+          if-no-files-found: ignore

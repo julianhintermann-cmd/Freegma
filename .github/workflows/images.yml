@@ -1,0 +1,153 @@
+# Build the Freegma images for linux/amd64 + linux/arm64 and publish them to
+# GitHub Container Registry and (optionally) Docker Hub.
+#
+#   ghcr.io/<owner>/freegma            ghcr.io/<owner>/freegma-tools
+#   docker.io/<namespace>/freegma      docker.io/<namespace>/freegma-tools
+#
+# Triggers
+#   - tag vX.Y.Z               -> X.Y.Z, X.Y           (pushed)
+#   - push to default branch   -> edge, sha-<short>    (pushed)
+#   - push to other branches   -> build only
+#   - pull request             -> build only
+#   - manual dispatch          -> like a push of the selected ref
+#
+# Docker Hub is used when these are configured in the repository settings:
+#   secret   DOCKERHUB_USERNAME   Docker Hub user
+#   secret   DOCKERHUB_TOKEN      Docker Hub access token (Read & Write)
+#   variable DOCKERHUB_NAMESPACE  optional, defaults to DOCKERHUB_USERNAME
+# No `latest` tag is published on purpose: deployments pin exact versions.
+
+name: images
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*.*.*"]
+  pull_request:
+    paths:
+      - "proxy/**"
+      - "branding/**"
+      - "tools/**"
+      - ".github/workflows/images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: images-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: freegma
+            context: .
+            file: proxy/Dockerfile
+            description: Freegma - self-hosted, branded Penpot with built-in MCP server (branding proxy)
+          - image: freegma-tools
+            context: tools
+            file: tools/Dockerfile
+            description: Freegma tools - smoke test, MCP setup and MCP end-to-end test
+    env:
+      PUBLISH: ${{ github.event_name != 'pull_request' && (github.ref_type == 'tag' || github.ref_name == github.event.repository.default_branch) }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || secrets.DOCKERHUB_USERNAME }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read pinned Penpot version
+        id: versions
+        run: |
+          echo "penpot=$(grep -E '^PENPOT_VERSION=' .env.example | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "freegma=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "freegma=edge-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Image names
+        id: names
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          images="ghcr.io/${owner}/${{ matrix.image }}"
+          if [ -n "$DOCKERHUB_USERNAME" ]; then
+            images="${images}"$'\n'"docker.io/${DOCKERHUB_NAMESPACE,,}/${{ matrix.image }}"
+          fi
+          {
+            echo "images<<EOF"
+            echo "$images"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: env.PUBLISH == 'true' && env.DOCKERHUB_USERNAME != ''
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ steps.names.outputs.images }}
+          flavor: |
+            latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=edge,enable={{is_default_branch}}
+            type=sha,prefix=sha-,enable=${{ env.PUBLISH == 'true' }}
+            type=ref,event=pr
+          labels: |
+            org.opencontainers.image.title=${{ matrix.image }}
+            org.opencontainers.image.description=${{ matrix.description }}
+            org.opencontainers.image.licenses=MPL-2.0
+            io.freegma.penpot-version=${{ steps.versions.outputs.penpot }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ env.PUBLISH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            FREEGMA_VERSION=${{ steps.versions.outputs.freegma }}
+            PENPOT_VERSION=${{ steps.versions.outputs.penpot }}
+            VCS_REF=${{ github.sha }}
+            SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          provenance: true
+          sbom: true
+
+      - name: Update Docker Hub description
+        if: env.PUBLISH == 'true' && env.DOCKERHUB_USERNAME != '' && matrix.image == 'freegma' && github.ref_type == 'tag'
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ env.DOCKERHUB_NAMESPACE }}/freegma
+          short-description: ${{ matrix.description }}
+          readme-filepath: ./README.md

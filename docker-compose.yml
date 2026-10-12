@@ -190,6 +190,9 @@ services:
       <<: [*penpot-flags, *penpot-public-uri, *penpot-body-size, *penpot-secret-key, *penpot-database, *penpot-redis]
       PENPOT_OBJECTS_STORAGE_BACKEND: fs
       PENPOT_OBJECTS_STORAGE_FS_DIRECTORY: /opt/data/assets
+      # Extra JVM flags, e.g. "-Xmx1g" to cap the heap on small machines
+      # (read by the image's run.sh as JVM_OPTS).
+      JVM_OPTS: ${PENPOT_JVM_OPTS:-}
       PENPOT_TELEMETRY_ENABLED: ${PENPOT_TELEMETRY_ENABLED:-false}
       PENPOT_TELEMETRY_REFERER: freegma
       # Email (optional). Without a real SMTP server, enable the "mailpit"
