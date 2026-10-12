@@ -16,7 +16,7 @@
 #  Start:  sudo docker compose -p freegma -f docker-compose.yaml up -d
 #  Admin:  sudo docker exec -it freegma-backend python3 manage.py create-profile
 #  Open:   https://freegma.jucloudy.com
-#  Versions: Penpot 2.18.3, PostgreSQL 15.19, Valkey 8.1.10, Freegma proxy sha-ce3424c
+#  Versions: Penpot 2.18.3, PostgreSQL 15.19, Valkey 8.1.10, Freegma proxy sha-82848ec
 # =============================================================================
 
 name: freegma
@@ -52,7 +52,7 @@ services:
   # --- Freegma branding proxy -----------------------------------------------
   freegma:
     <<: *common
-    image: ghcr.io/julianhintermann-cmd/freegma:sha-ce3424c
+    image: ghcr.io/julianhintermann-cmd/freegma:sha-82848ec
     container_name: freegma-proxy
     ports:
       - "19001:8080"     # Nginx Proxy Manager forwards here
