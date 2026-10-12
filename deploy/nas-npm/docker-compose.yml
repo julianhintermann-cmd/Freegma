@@ -61,6 +61,8 @@ services:
       FREEGMA_PENPOT_VERSION: "2.18.3"
       FREEGMA_BRAND_NAME: Freegma
       FREEGMA_SHOW_ATTRIBUTION: "true"
+      FREEGMA_MCP_BACKGROUND: "true"          # MCP keeps working when the tab is in the background
+      FREEGMA_SES_OVERRIDE_TAMING: severe     # prevents Penpot's "toString is read-only" Internal Error
     depends_on:
       penpot-frontend: { condition: service_healthy }
     healthcheck:
