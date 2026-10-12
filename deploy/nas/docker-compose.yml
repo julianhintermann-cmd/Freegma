@@ -137,6 +137,9 @@ services:
       PENPOT_HTTP_SERVER_MAX_MULTIPART_BODY_SIZE: 367001600
       PENPOT_TELEMETRY_ENABLED: "false"
       JVM_OPTS: "-Xmx1g"     # cap the Java heap (NAS RAM is shared with other apps)
+      # Penpot opens 60 DB connections by default; plenty for a few users:
+      PENPOT_DATABASE_MIN_POOL_SIZE: 4
+      PENPOT_DATABASE_MAX_POOL_SIZE: 16
     depends_on:
       penpot-postgres: { condition: service_healthy }
       penpot-valkey: { condition: service_healthy }
