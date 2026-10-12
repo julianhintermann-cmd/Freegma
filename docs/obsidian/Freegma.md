@@ -70,6 +70,8 @@ Cron (daily backup): `15 3 * * * cd /volume1/docker/freegma && mkdir -p backups 
 - [x] MCP: `make mcp-test` passes
 - [x] Backup + restore into a fresh stack tested
 - [x] Update 2.18.2 -> 2.18.3 incl. rollback rehearsal tested
+- [x] CI green (lint + e2e), images published to GHCR as `edge` / `sha-*`
+- [x] Independent code review done, findings fixed
 - [ ] Deploy on the NAS (check `uname -m`, free ports 80/443, DNS record)
 - [ ] Trust root CA on PC/phone (`make ca-cert`)
 - [ ] Connect Claude Code / Claude Desktop
