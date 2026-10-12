@@ -133,7 +133,7 @@ services:
       FREEGMA_ACCENT_LIGHT: ${FREEGMA_ACCENT_LIGHT:-}
       FREEGMA_REBRAND_TEXT: ${FREEGMA_REBRAND_TEXT:-true}
       FREEGMA_SHOW_ATTRIBUTION: ${FREEGMA_SHOW_ATTRIBUTION:-true}
-      FREEGMA_SOURCE_URL: ${FREEGMA_SOURCE_URL:-https://github.com/julianhintermann-cmd/freegma}
+      FREEGMA_SOURCE_URL: ${FREEGMA_SOURCE_URL:-https://github.com/julianhintermann-cmd/Freegma}
       FREEGMA_MAX_BODY_SIZE: ${PENPOT_HTTP_SERVER_MAX_BODY_SIZE:-367001600}
     volumes:
       # Live branding override. Remove this line to use the branding baked

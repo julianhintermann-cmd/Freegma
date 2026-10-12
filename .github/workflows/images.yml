@@ -150,4 +150,4 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKERHUB_NAMESPACE }}/freegma
           short-description: ${{ matrix.description }}
-          readme-filepath: ./README.md
+          readme-filepath: ./docs/DOCKERHUB.md

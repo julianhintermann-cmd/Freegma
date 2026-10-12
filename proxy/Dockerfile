@@ -16,7 +16,7 @@ FROM nginx:${NGINX_VERSION}-alpine
 ARG FREEGMA_VERSION=dev
 ARG PENPOT_VERSION=2.18.3
 ARG VCS_REF=unknown
-ARG SOURCE_URL=https://github.com/julianhintermann-cmd/freegma
+ARG SOURCE_URL=https://github.com/julianhintermann-cmd/Freegma
 
 LABEL org.opencontainers.image.title="Freegma" \
       org.opencontainers.image.description="Self-hosted, branded Penpot with built-in MCP server - branding proxy" \
