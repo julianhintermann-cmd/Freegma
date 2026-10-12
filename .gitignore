@@ -21,3 +21,6 @@ Thumbs.db
 # Exported CA certificates
 *.crt
 branding.before-restore.*/
+
+# /brag launch videos
+brag-output*/
