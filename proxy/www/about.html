@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About Freegma</title>
+  <link rel="icon" type="image/svg+xml" href="/freegma/favicon.svg">
+  <style>
+    :root {
+      --bg: #18191b; --fg: #e8eaee; --muted: #8f9da3; --card: #212426; --accent: #ff8a5c; --border: #2e3434;
+    }
+    @media (prefers-color-scheme: light) {
+      :root { --bg: #f6f6f7; --fg: #1f1f1f; --muted: #5d6266; --card: #ffffff; --accent: #c2410c; --border: #e3e5e8; }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--fg);
+      font: 15px/1.6 "Work Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    main { max-width: 720px; margin: 0 auto; padding: 48px 16px 64px; }
+    header { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; }
+    header img { width: 56px; height: 56px; }
+    h1 { font-size: 28px; margin: 0; letter-spacing: -0.02em; }
+    h2 { font-size: 16px; margin: 32px 0 8px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+    a { color: var(--accent); }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; }
+    dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 24px; margin: 0; }
+    dt { color: var(--muted); }
+    dd { margin: 0; font-variant-numeric: tabular-nums; word-break: break-word; }
+    p { margin: 0 0 12px; }
+    .back { display: inline-block; margin-top: 32px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="/freegma/logo-icon.svg" alt="">
+    <div>
+      <h1><span data-brand>Freegma</span></h1>
+      <div style="color:var(--muted)">Self-hosted design tool, powered by Penpot</div>
+    </div>
+  </header>
+
+  <div class="card">
+    <dl>
+      <dt>Freegma</dt><dd data-version>-</dd>
+      <dt>Penpot</dt><dd data-penpot>-</dd>
+      <dt>Licence</dt><dd>Mozilla Public License 2.0 (<a href="/freegma/LICENSE">full text</a>)</dd>
+    </dl>
+  </div>
+
+  <h2>Attribution</h2>
+  <p>
+    <span data-brand>Freegma</span> is a branded, self-hosted distribution of
+    <a href="https://penpot.app" target="_blank" rel="noopener">Penpot</a>, the open-source design
+    platform made by <a href="https://kaleidos.net" target="_blank" rel="noopener">Kaleidos</a> and the
+    Penpot community. All design features are Penpot's. "Penpot" and the Penpot logo are trademarks
+    of their respective owners; Freegma is not affiliated with or endorsed by the Penpot project.
+  </p>
+  <p>
+    Penpot runs here from the official, unmodified Docker images. Freegma only adds a
+    reverse proxy that swaps logos, colours and a few UI texts at delivery time.
+  </p>
+
+  <h2>Source code</h2>
+  <p>
+    Penpot source for this exact version:
+    <a data-penpot-src href="https://github.com/penpot/penpot" target="_blank" rel="noopener">github.com/penpot/penpot</a><br>
+    Freegma source (compose files, branding proxy, scripts):
+    <a data-freegma-src href="https://github.com/julianhintermann-cmd/freegma" target="_blank" rel="noopener">repository</a><br>
+    Notices: <a href="/freegma/NOTICE.md">NOTICE.md</a>
+  </p>
+
+  <a class="back" href="/">&larr; Back to <span data-brand>Freegma</span></a>
+</main>
+<script>
+  fetch("/freegma/config.json").then(function (r) { return r.json(); }).then(function (c) {
+    document.querySelectorAll("[data-brand]").forEach(function (el) { el.textContent = c.name; });
+    document.title = "About " + c.name;
+    document.querySelector("[data-version]").textContent = c.version;
+    document.querySelector("[data-penpot]").textContent = c.penpotVersion || "unknown";
+    if (c.penpotVersion) {
+      var a = document.querySelector("[data-penpot-src]");
+      a.href = "https://github.com/penpot/penpot/tree/" + encodeURIComponent(c.penpotVersion);
+      a.textContent = "github.com/penpot/penpot @ " + c.penpotVersion;
+    }
+    if (c.sourceUrl) {
+      var s = document.querySelector("[data-freegma-src]");
+      s.href = c.sourceUrl; s.textContent = c.sourceUrl.replace(/^https?:\/\//, "");
+    }
+  }).catch(function () {});
+</script>
+</body>
+</html>

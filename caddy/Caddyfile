@@ -1,0 +1,30 @@
+# Freegma edge proxy (compose profile "https").
+#
+# FREEGMA_DOMAIN : hostname users open, e.g. freegma.home.arpa
+# FREEGMA_TLS    : "internal"        -> Caddy's own CA (LAN / Tailscale).
+#                                       Export the root with `make ca-cert`.
+#                  "you@example.com" -> Let's Encrypt (HTTP-01/TLS-ALPN-01;
+#                                       the host must be reachable on 80/443).
+# Docs: https://caddyserver.com/docs/caddyfile/directives/tls
+
+{
+	# Admin API only inside the container (used by the healthcheck).
+	admin localhost:2019
+}
+
+{$FREEGMA_DOMAIN} {
+	tls {$FREEGMA_TLS}
+
+	# No HSTS on purpose: with the internal CA, browsers must still allow a
+	# click-through until the root certificate is trusted.
+	header -Server
+
+	reverse_proxy freegma:8080 {
+		# Stream responses immediately (MCP streamable HTTP / SSE).
+		flush_interval -1
+		transport http {
+			read_timeout 1h
+			write_timeout 1h
+		}
+	}
+}

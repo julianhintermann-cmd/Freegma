@@ -1,0 +1,325 @@
+# =============================================================================
+#  Freegma - self-hosted, branded Penpot with a built-in MCP server
+# =============================================================================
+#
+#  Based on the official Penpot compose file:
+#    https://github.com/penpot/penpot/blob/2.18.3/docker/images/docker-compose.yaml
+#  Configuration reference:
+#    https://help.penpot.app/technical-guide/configuration/
+#
+#  Every image is pinned. Upgrading Penpot = bump PENPOT_VERSION in .env
+#  (see `make update`). Nothing in this file needs editing for a normal
+#  install; all knobs live in .env (copy .env.example).
+#
+#  Request flow:
+#    browser -> caddy (HTTPS, profile "https") -> freegma (branding proxy)
+#            -> penpot-frontend (nginx) -> backend / exporter / mcp
+# =============================================================================
+
+name: ${COMPOSE_PROJECT_NAME:-freegma}
+
+x-penpot-flags: &penpot-flags
+  # Flags reference: https://help.penpot.app/technical-guide/configuration/#penpot-configuration
+  # Flag names verified against common/src/app/common/flags.cljc @ 2.18.3.
+  PENPOT_FLAGS: >-
+    disable-registration
+    enable-login-with-password
+    disable-email-verification
+    disable-onboarding
+    enable-prepl-server
+    enable-mcp
+    ${PENPOT_EXTRA_FLAGS:-}
+
+x-penpot-public-uri: &penpot-public-uri
+  PENPOT_PUBLIC_URI: ${FREEGMA_PUBLIC_URI:?Set FREEGMA_PUBLIC_URI in .env}
+
+x-penpot-body-size: &penpot-body-size
+  PENPOT_HTTP_SERVER_MAX_BODY_SIZE: ${PENPOT_HTTP_SERVER_MAX_BODY_SIZE:-367001600}
+  PENPOT_HTTP_SERVER_MAX_MULTIPART_BODY_SIZE: ${PENPOT_HTTP_SERVER_MAX_BODY_SIZE:-367001600}
+
+x-penpot-secret-key: &penpot-secret-key
+  PENPOT_SECRET_KEY: ${PENPOT_SECRET_KEY:?Set PENPOT_SECRET_KEY in .env (run scripts/init-env.sh)}
+
+x-penpot-database: &penpot-database
+  PENPOT_DATABASE_URI: postgresql://penpot-postgres/${POSTGRES_DB:-penpot}
+  PENPOT_DATABASE_USERNAME: ${POSTGRES_USER:-penpot}
+  PENPOT_DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+
+x-penpot-redis: &penpot-redis
+  PENPOT_REDIS_URI: redis://penpot-valkey/0
+
+x-restart: &restart
+  restart: unless-stopped
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+networks:
+  freegma:
+    name: ${COMPOSE_PROJECT_NAME:-freegma}_net
+
+volumes:
+  postgres:
+    name: ${COMPOSE_PROJECT_NAME:-freegma}_postgres
+  assets:
+    name: ${COMPOSE_PROJECT_NAME:-freegma}_assets
+  caddy_data:
+    name: ${COMPOSE_PROJECT_NAME:-freegma}_caddy_data
+  caddy_config:
+    name: ${COMPOSE_PROJECT_NAME:-freegma}_caddy_config
+
+services:
+  # ---------------------------------------------------------------------------
+  #  Edge: optional HTTPS terminator (enable with COMPOSE_PROFILES=https).
+  #  Uses Caddy's internal CA by default (FREEGMA_TLS=internal) or Let's
+  #  Encrypt (FREEGMA_TLS=you@example.com) when the host is reachable.
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2.11.7-alpine
+    profiles: ["https"]
+    <<: [*restart, *logging]
+    depends_on:
+      freegma:
+        condition: service_healthy
+    ports:
+      - "${FREEGMA_HTTPS_BIND:-0.0.0.0}:${FREEGMA_HTTPS_PORT:-443}:443"
+      - "${FREEGMA_HTTPS_BIND:-0.0.0.0}:${FREEGMA_HTTP_REDIRECT_PORT:-80}:80"
+    environment:
+      FREEGMA_DOMAIN: ${FREEGMA_DOMAIN:?Set FREEGMA_DOMAIN in .env}
+      FREEGMA_TLS: ${FREEGMA_TLS:-internal}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [freegma]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:2019/config/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  #  Freegma branding proxy (the image built from ./proxy and published to
+  #  GHCR + Docker Hub). Injects logo, favicon, colours and the Penpot
+  #  attribution without modifying any upstream image.
+  # ---------------------------------------------------------------------------
+  freegma:
+    image: ${FREEGMA_IMAGE:-ghcr.io/julianhintermann-cmd/freegma}:${FREEGMA_VERSION:-1.0.0}
+    build:
+      context: .
+      dockerfile: proxy/Dockerfile
+      args:
+        FREEGMA_VERSION: ${FREEGMA_VERSION:-1.0.0}
+        PENPOT_VERSION: ${PENPOT_VERSION:-2.18.3}
+    <<: [*restart, *logging]
+    depends_on:
+      penpot-frontend:
+        condition: service_healthy
+    ports:
+      # Plain-HTTP port. Bound to localhost by default; Caddy reaches the
+      # proxy over the internal network. Set FREEGMA_HTTP_BIND=0.0.0.0 to use
+      # your own reverse proxy (NPM, Traefik, Tailscale serve, ...) instead.
+      - "${FREEGMA_HTTP_BIND:-127.0.0.1}:${FREEGMA_HTTP_PORT:-9001}:8080"
+    environment:
+      FREEGMA_UPSTREAM: http://penpot-frontend:8080
+      FREEGMA_PENPOT_VERSION: ${PENPOT_VERSION:-2.18.3}
+      FREEGMA_BRAND_NAME: ${FREEGMA_BRAND_NAME:-Freegma}
+      FREEGMA_ACCENT_DARK: ${FREEGMA_ACCENT_DARK:-}
+      FREEGMA_ACCENT_LIGHT: ${FREEGMA_ACCENT_LIGHT:-}
+      FREEGMA_REBRAND_TEXT: ${FREEGMA_REBRAND_TEXT:-true}
+      FREEGMA_SHOW_ATTRIBUTION: ${FREEGMA_SHOW_ATTRIBUTION:-true}
+      FREEGMA_SOURCE_URL: ${FREEGMA_SOURCE_URL:-https://github.com/julianhintermann-cmd/freegma}
+      FREEGMA_MAX_BODY_SIZE: ${PENPOT_HTTP_SERVER_MAX_BODY_SIZE:-367001600}
+    volumes:
+      # Live branding override. Remove this line to use the branding baked
+      # into the image.
+      - ./branding:/etc/freegma/branding:ro
+    networks: [freegma]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/freegma/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  #  Penpot (official images, unmodified)
+  # ---------------------------------------------------------------------------
+  penpot-frontend:
+    image: penpotapp/frontend:${PENPOT_VERSION:-2.18.3}
+    <<: [*restart, *logging]
+    depends_on:
+      penpot-backend:
+        condition: service_healthy
+      penpot-exporter:
+        condition: service_healthy
+      penpot-mcp:
+        condition: service_healthy
+    volumes:
+      - assets:/opt/data/assets
+    networks: [freegma]
+    environment:
+      <<: [*penpot-flags, *penpot-body-size, *penpot-public-uri]
+      PENPOT_DISABLE_IPV6_LISTEN: ${PENPOT_DISABLE_IPV6_LISTEN:-false}
+    healthcheck:
+      # /readyz is proxied to the backend; a 200 means nginx + backend are up.
+      # The image ships neither curl nor wget, so use bash's /dev/tcp.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /readyz HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  penpot-backend:
+    image: penpotapp/backend:${PENPOT_VERSION:-2.18.3}
+    <<: [*restart, *logging]
+    depends_on:
+      penpot-postgres:
+        condition: service_healthy
+      penpot-valkey:
+        condition: service_healthy
+    volumes:
+      - assets:/opt/data/assets
+    networks: [freegma]
+    environment:
+      <<: [*penpot-flags, *penpot-public-uri, *penpot-body-size, *penpot-secret-key, *penpot-database, *penpot-redis]
+      PENPOT_OBJECTS_STORAGE_BACKEND: fs
+      PENPOT_OBJECTS_STORAGE_FS_DIRECTORY: /opt/data/assets
+      PENPOT_TELEMETRY_ENABLED: ${PENPOT_TELEMETRY_ENABLED:-false}
+      PENPOT_TELEMETRY_REFERER: freegma
+      # Email (optional). Without a real SMTP server, enable the "mailpit"
+      # profile and keep the defaults below to catch all mail locally.
+      PENPOT_SMTP_DEFAULT_FROM: ${PENPOT_SMTP_DEFAULT_FROM:-no-reply@freegma.local}
+      PENPOT_SMTP_DEFAULT_REPLY_TO: ${PENPOT_SMTP_DEFAULT_REPLY_TO:-no-reply@freegma.local}
+      PENPOT_SMTP_HOST: ${PENPOT_SMTP_HOST:-penpot-mailpit}
+      PENPOT_SMTP_PORT: ${PENPOT_SMTP_PORT:-1025}
+      PENPOT_SMTP_USERNAME: ${PENPOT_SMTP_USERNAME:-}
+      PENPOT_SMTP_PASSWORD: ${PENPOT_SMTP_PASSWORD:-}
+      PENPOT_SMTP_TLS: ${PENPOT_SMTP_TLS:-false}
+      PENPOT_SMTP_SSL: ${PENPOT_SMTP_SSL:-false}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:6060/readyz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  penpot-exporter:
+    image: penpotapp/exporter:${PENPOT_VERSION:-2.18.3}
+    <<: [*restart, *logging]
+    depends_on:
+      penpot-valkey:
+        condition: service_healthy
+    networks: [freegma]
+    environment:
+      <<: [*penpot-flags, *penpot-secret-key, *penpot-public-uri, *penpot-redis]
+      # Internal URI the headless browser uses to render exports.
+      PENPOT_INTERNAL_URI: http://penpot-frontend:8080
+    healthcheck:
+      # No HTTP health route; check that the HTTP server (6061) accepts connections.
+      test: ["CMD", "node", "-e", "require('net').connect(6061,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  penpot-mcp:
+    # Official MCP server, multi-user ("remote") mode. Reached through the
+    # frontend at /mcp/stream (MCP clients) and /mcp/ws (Penpot plugin).
+    image: penpotapp/mcp:${PENPOT_VERSION:-2.18.3}
+    <<: [*restart, *logging]
+    networks: [freegma]
+    environment:
+      PENPOT_MCP_LOG_LEVEL: ${PENPOT_MCP_LOG_LEVEL:-info}
+      PENPOT_MCP_TOOL_TIMEOUT_S: ${PENPOT_MCP_TOOL_TIMEOUT_S:-120}
+    healthcheck:
+      # Distroless image: probe the MCP HTTP (4401) and plugin websocket (4402) ports.
+      test: ["CMD", "node", "-e", "const n=require('net');let ok=0;for(const p of [4401,4402])n.connect(p,'127.0.0.1').on('connect',()=>{if(++ok==2)process.exit(0)}).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  penpot-postgres:
+    image: postgres:15.19
+    <<: [*restart, *logging]
+    stop_signal: SIGINT
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks: [freegma]
+    environment:
+      POSTGRES_INITDB_ARGS: --data-checksums
+      POSTGRES_DB: ${POSTGRES_DB:-penpot}
+      POSTGRES_USER: ${POSTGRES_USER:-penpot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 10s
+
+  penpot-valkey:
+    image: valkey/valkey:8.1.10
+    <<: [*restart, *logging]
+    networks: [freegma]
+    environment:
+      VALKEY_EXTRA_FLAGS: --maxmemory 128mb --maxmemory-policy volatile-lfu
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+
+  # ---------------------------------------------------------------------------
+  #  Tools (on demand only): `make smoke`, `make mcp-token`, `make mcp-test`.
+  #  Runs on the host network and talks to Freegma through FREEGMA_PUBLIC_URI,
+  #  exactly like a browser / Claude would.
+  # ---------------------------------------------------------------------------
+  tools:
+    image: ${FREEGMA_TOOLS_IMAGE:-ghcr.io/julianhintermann-cmd/freegma-tools}:${FREEGMA_VERSION:-1.0.0}
+    build:
+      context: ./tools
+      args:
+        FREEGMA_VERSION: ${FREEGMA_VERSION:-1.0.0}
+    profiles: ["tools"]
+    network_mode: host
+    init: true
+    shm_size: "1gb"
+    extra_hosts:
+      # Resolve the public hostname to this host even without LAN DNS.
+      - "${FREEGMA_DOMAIN:?Set FREEGMA_DOMAIN in .env}:${FREEGMA_TOOLS_HOST_IP:-127.0.0.1}"
+    environment:
+      FREEGMA_PUBLIC_URI: ${FREEGMA_PUBLIC_URI}
+      FREEGMA_BRAND_NAME: ${FREEGMA_BRAND_NAME:-Freegma}
+      FREEGMA_REBRAND_TEXT: ${FREEGMA_REBRAND_TEXT:-true}
+      FREEGMA_MCP_TOKEN: ${FREEGMA_MCP_TOKEN:-}
+      # Passed through from the calling shell (the Makefile prompts for them).
+      FREEGMA_TEST_EMAIL: ${FREEGMA_TEST_EMAIL:-}
+      FREEGMA_TEST_PASSWORD: ${FREEGMA_TEST_PASSWORD:-}
+      FREEGMA_MCP_ROTATE: ${FREEGMA_MCP_ROTATE:-0}
+      FREEGMA_MCP_EXPIRATION: ${FREEGMA_MCP_EXPIRATION:-}
+      FREEGMA_SMOKE_BROWSER: ${FREEGMA_SMOKE_BROWSER:-1}
+      FREEGMA_ENV_FILE: /work/.env
+    volumes:
+      - ./.env:/work/.env
+      - ./tests/output:/output
+      - caddy_data:/caddy-data:ro
+
+  # ---------------------------------------------------------------------------
+  #  Optional: local mail catcher for testing (COMPOSE_PROFILES=...,mailpit).
+  #  Web UI on 127.0.0.1:8025 only.
+  # ---------------------------------------------------------------------------
+  penpot-mailpit:
+    image: axllent/mailpit:v1.31.5
+    profiles: ["mailpit"]
+    <<: [*restart, *logging]
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+    networks: [freegma]

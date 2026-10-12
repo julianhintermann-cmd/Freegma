@@ -1,0 +1,82 @@
+/* =============================================================================
+   Freegma theme overrides
+   -----------------------------------------------------------------------------
+   Loaded after Penpot's own stylesheets, so plain selectors win.
+   Penpot themes: `.default` = dark UI (default), `.light` = light UI.
+   Selectors used here are documented in docs/BRANDING.md; re-check them
+   after a Penpot upgrade (`make branding-check`).
+   ========================================================================== */
+
+/* ---- Brand colours ------------------------------------------------------ */
+:root {
+  --freegma-logo-bg: #ff6a3d;   /* logo tile */
+  --freegma-logo-fg: #ffffff;   /* the "F" */
+  --freegma-logo-node: #2b1a14; /* the node dot */
+}
+
+.default {
+  --freegma-accent: #ff8a5c;
+  --color-accent-primary: #ff8a5c;
+  --color-accent-primary-muted: #5a3324;
+}
+
+.light {
+  --freegma-accent: #c2410c;
+  --color-accent-primary: #c2410c;
+  --color-accent-primary-muted: #fbd9c8;
+}
+
+/* ---- Login screen ------------------------------------------------------- */
+/* Wordmark a little larger than Penpot's 7.5rem x 2.5rem */
+.main_ui_auth__logo {
+  inline-size: 9rem;
+  block-size: 3rem;
+}
+
+/* ---- Attribution badge (injected by /freegma/freegma.js) ---------------- */
+#freegma-attribution {
+  position: fixed;
+  z-index: 10;
+  font-family: "worksans", "Work Sans", system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-foreground-secondary, #8f9da3);
+  pointer-events: auto;
+}
+
+#freegma-attribution[hidden] {
+  display: none;
+}
+
+#freegma-attribution a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: color 0.15s, text-decoration-color 0.15s;
+}
+
+#freegma-attribution a:hover {
+  color: var(--freegma-accent, #ff8a5c);
+  text-decoration-color: currentColor;
+}
+
+#freegma-attribution .freegma-brand {
+  font-weight: 600;
+}
+
+/* Login & other auth pages: bottom centre */
+#freegma-attribution[data-route="auth"],
+#freegma-attribution[data-route=""] {
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* Dashboard & settings: bottom of the left sidebar, above the profile */
+#freegma-attribution[data-route="dashboard"],
+#freegma-attribution[data-route="settings"] {
+  left: 24px;
+  bottom: 76px;
+  max-width: 250px;
+}

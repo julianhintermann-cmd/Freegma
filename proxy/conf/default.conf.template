@@ -1,0 +1,121 @@
+# Freegma branding proxy - rendered at container start by the official nginx
+# image (envsubst, filtered to FREEGMA_* variables).
+#
+# Only two kinds of responses are rewritten:
+#   1. the SPA entry point (index.html)    -> branding CSS/JS + favicon injected
+#   2. the UI translation bundles           -> selected "Penpot" texts replaced
+# Everything else (API, websockets, assets, MCP) is passed through untouched.
+
+include /etc/nginx/freegma/resolver.conf;
+
+map $http_upgrade $freegma_connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+# Keep the scheme seen by the edge proxy (Caddy / your reverse proxy).
+map $http_x_forwarded_proto $freegma_forwarded_proto {
+    default $http_x_forwarded_proto;
+    ''      $scheme;
+}
+
+server {
+    listen 8080 default_server;
+    server_name _;
+    server_tokens off;
+
+    client_max_body_size ${FREEGMA_MAX_BODY_SIZE};
+
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types text/css text/plain text/javascript application/javascript application/json
+               application/transit+json image/svg+xml application/wasm;
+
+    proxy_http_version 1.1;
+    proxy_set_header Host              $http_host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $freegma_forwarded_proto;
+    proxy_set_header X-Forwarded-Host  $http_host;
+
+    proxy_connect_timeout 300s;
+    proxy_send_timeout    300s;
+    proxy_read_timeout    300s;
+    send_timeout          300s;
+
+    # Resolve the upstream per request so a recreated penpot-frontend
+    # container (new IP after an update) is picked up automatically.
+    set $freegma_upstream ${FREEGMA_UPSTREAM};
+
+    # ---- Freegma's own endpoints -------------------------------------------
+    location = /freegma/healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location /freegma/ {
+        alias /var/lib/freegma/www/;
+        add_header Cache-Control "public, max-age=300" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    # Favicon requested by the stock <link rel="icon">.
+    location = /images/favicon.png {
+        alias /var/lib/freegma/www/favicon.png;
+        add_header Cache-Control "public, max-age=3600" always;
+    }
+
+    # Login artwork (generated: branding/login-illustration.*)
+    include /etc/nginx/freegma/login-illustration.conf;
+
+    # ---- 1. SPA entry point -------------------------------------------------
+    location ~ ^/(index\.html)?$ {
+        proxy_pass $freegma_upstream;
+        proxy_set_header Accept-Encoding "";
+        sub_filter_once on;
+        include /etc/nginx/freegma/html-filters.conf;
+    }
+
+    # ---- 2. UI texts --------------------------------------------------------
+    location ~ ^/js/translation\.[A-Za-z_]+\.js$ {
+        proxy_pass $freegma_upstream;
+        proxy_set_header Accept-Encoding "";
+        sub_filter_types application/javascript text/javascript;
+        sub_filter_once off;
+        include /etc/nginx/freegma/text-filters.conf;
+        # The URL is only versioned by the Penpot build; keep the cache short
+        # so branding changes show up quickly.
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=3600" always;
+    }
+
+    # ---- Websockets (notifications + MCP plugin bridge) -----------------------
+    location ~ ^/(ws/|mcp/ws) {
+        proxy_pass $freegma_upstream;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection $freegma_connection_upgrade;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # ---- MCP for AI clients (streamable HTTP + legacy SSE) --------------------
+    location ~ ^/mcp/(stream|sse) {
+        proxy_pass $freegma_upstream;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_request_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        add_header X-Accel-Buffering no always;
+    }
+
+    # ---- Everything else ------------------------------------------------------
+    location / {
+        proxy_pass $freegma_upstream;
+        proxy_request_buffering off;
+    }
+}

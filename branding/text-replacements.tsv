@@ -1,0 +1,38 @@
+# Freegma UI text replacements
+# -----------------------------------------------------------------------------
+# Applied by the branding proxy to Penpot's translation bundles (/js/translation.*.js).
+# Format: <exact text in Penpot><TAB><replacement>.  {{BRAND}} = FREEGMA_BRAND_NAME.
+# Lines starting with # are comments. '$' is not allowed. Matching is literal and
+# case-sensitive. Disable all of them with FREEGMA_REBRAND_TEXT=false.
+#
+# Deliberately NOT replaced: texts that refer to the Penpot project itself
+# ("About Penpot", changelog, community, Kaleidos, the .penpot file format).
+
+# --- Window titles (all languages share the " - Penpot" suffix) ---
+- Penpot"	- {{BRAND}}"
+"Penpot | Full-stack design"	"{{BRAND}}"
+"Penpot - Gestaltungsfreiheit für Teams"	"{{BRAND}}"
+
+# --- English ---
+Penpot is the free open-source design tool for Design and Code collaboration	{{BRAND}} - your self-hosted design tool for Design and Code collaboration, powered by Penpot
+Penpot is the open-source design platform for teams that build digital products at scale.	{{BRAND}} - self-hosted design platform, powered by Penpot.
+Welcome to Penpot!	Welcome to {{BRAND}}!
+Penpot Dark (default)	{{BRAND}} Dark (default)
+"Penpot Light"	"{{BRAND}} Light"
+All Penpot users	All {{BRAND}} users
+And start using Penpot in seconds!	And start using {{BRAND}} in seconds!
+to verify and start using Penpot.	to verify and start using {{BRAND}}.
+The Penpot MCP Server enables MCP clients to interact directly with Penpot design files.	The MCP Server lets AI clients such as Claude read and edit your {{BRAND}} design files.
+connect it to the Penpot MCP server.	connect it to the {{BRAND}} MCP server.
+Serve Penpot over HTTPS to enable clipboard access	Serve {{BRAND}} over HTTPS to enable clipboard access
+which is required for Penpot to work	which is required for {{BRAND}} to work
+reload any other open Penpot tabs	reload any other open {{BRAND}} tabs
+Penpot is temporarily unavailable due to a system issue.	{{BRAND}} is temporarily unavailable due to a system issue.
+
+# --- German ---
+Penpot ist das kostenlose Open-Source-Design-Tool für die Zusammenarbeit von Design und Code	{{BRAND}} - dein selbst gehostetes Design-Tool für Design und Code, basierend auf Penpot
+Willkommen bei Penpot!	Willkommen bei {{BRAND}}!
+Penpot Dunkel (Standard)	{{BRAND}} Dunkel (Standard)
+"Penpot Hell"	"{{BRAND}} Hell"
+Alle Penpot-Benutzer	Alle {{BRAND}}-Benutzer
+Und starten Sie Penpot in Sekunden!	Und starten Sie {{BRAND}} in Sekunden!

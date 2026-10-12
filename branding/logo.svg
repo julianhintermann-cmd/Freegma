@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500">
+  <!-- Freegma wordmark. The text inherits the UI's fill colour (light/dark theme). -->
+  <rect x="20" y="70" width="360" height="360" rx="94" style="fill:var(--freegma-logo-bg,#ff6a3d)"/>
+  <rect x="114" y="140" width="60" height="220" rx="30" style="fill:var(--freegma-logo-fg,#ffffff)"/>
+  <rect x="114" y="140" width="180" height="60" rx="30" style="fill:var(--freegma-logo-fg,#ffffff)"/>
+  <rect x="114" y="228" width="118" height="55" rx="27.5" style="fill:var(--freegma-logo-fg,#ffffff)"/>
+  <circle cx="275" cy="320" r="35" style="fill:var(--freegma-logo-node,#2b1a14)"/>
+  <circle cx="275" cy="320" r="14" style="fill:var(--freegma-logo-fg,#ffffff)"/>
+  <text x="440" y="345" font-family="'Work Sans', 'worksans', 'Inter', 'Segoe UI', Arial, sans-serif" font-size="250" font-weight="600" letter-spacing="-6">freegma</text>
+</svg>
