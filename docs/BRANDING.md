@@ -121,6 +121,7 @@ Verified against Penpot **2.18.3**. Re-check them after upgrading
 | `.main_ui_static__penpot-logo`, `.main_ui_static__deco-*` | logo on error / 404 pages (inline SVG) | `freegma.css` |
 | `<head>` of `/plugins/mcp/index.html` | injects `worker-timers.js` (background MCP) | `mcp-plugin-filters.conf` |
 | SES `getEnvironmentOption` reads `globalThis.process.env.LOCKDOWN_OVERRIDE_TAMING`; `libs.js` reassigns `window.process` | plugin-sandbox hardening | `freegma.js` |
+| `libs.js` installs global `harden`/`hardenIntrinsics` (SES `repairIntrinsics`) and starts plugins with `harden(api)` before `hardenIntrinsics()` | `toString` override fix (harden order) | `freegma.js` |
 
 If something breaks after an upgrade, it degrades gracefully: you see
 Penpot's original logo or text again, and Penpot itself keeps working.

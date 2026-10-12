@@ -56,6 +56,44 @@
     } catch (e) { /* leave Penpot's defaults */ }
   }
 
+  // Penpot 2.18 starts a plugin (e.g. the MCP plugin, automatically when a
+  // file opens) with `harden(pluginApi)` *before* it calls
+  // `hardenIntrinsics()`. harden() freezes Object.prototype and
+  // Function.prototype on the way, so SES can no longer turn their
+  // `toString`/`valueOf`/... into overridable accessors. From then on every
+  // plain `obj.toString = fn` in the app throws (Firefox: "toString" is
+  // read-only) and Penpot shows "Internal Error". Fix: make the first
+  // harden() run hardenIntrinsics() first - the order SES documents - and
+  // make hardenIntrinsics() idempotent for Penpot's own later call.
+  // (libs.js -> kZt: In.harden(n) before OZt -> In.hardenIntrinsics()).
+  function fixHardenOrder() {
+    var g = globalThis;
+    if (g.__freegmaHardenOrder) return true;
+    var hardenIntrinsics = g.hardenIntrinsics;
+    var harden = g.harden;
+    if (typeof hardenIntrinsics !== "function" || typeof harden !== "function") return false;
+    var done = false;
+    var once = function () {
+      if (done) return undefined;
+      done = true;
+      return hardenIntrinsics.apply(this, arguments);
+    };
+    try {
+      g.hardenIntrinsics = once;
+      g.harden = function (value) {
+        once();
+        return harden(value);
+      };
+    } catch (e) { /* not writable - leave Penpot's defaults */ }
+    g.__freegmaHardenOrder = true;
+    return true;
+  }
+  if (taming !== "off" && !fixHardenOrder()) {
+    // libs.js installs harden/hardenIntrinsics (SES repairIntrinsics) while
+    // loading, i.e. after this script and long before a plugin can start.
+    document.addEventListener("DOMContentLoaded", fixHardenOrder);
+  }
+
   // Sprite symbols that carry the Penpot logo (Penpot 2.18).
   var WORDMARK_SYMBOLS = ["asset-penpot-logo", "icon-penpot-logo"];
   var ICON_SYMBOLS = [

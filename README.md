@@ -196,7 +196,7 @@ Everything lives in `.env`, created from [`.env.example`](.env.example) by `make
 | `FREEGMA_ACCENT_DARK` / `FREEGMA_ACCENT_LIGHT` | *(empty)* | Accent colour overrides for the dark and light UI themes. |
 | `FREEGMA_REBRAND_TEXT` | `true` | Apply `branding/text-replacements.tsv`. |
 | `FREEGMA_SHOW_ATTRIBUTION` | `true` | Show "Freegma – based on Penpot (MPL-2.0)" on the login screen and dashboard. |
-| `FREEGMA_SES_OVERRIDE_TAMING` | `severe` | Plugin-sandbox hardening level. `severe` prevents "Internal Error" crashes from scripts that override frozen built-ins; `off` = Penpot default. |
+| `FREEGMA_SES_OVERRIDE_TAMING` | `severe` | Plugin-sandbox fixes. `severe`/`moderate` prevent "Internal Error" crashes (`"toString" is read-only`) once a plugin such as MCP runs; `off` = unmodified Penpot behaviour. |
 | `FREEGMA_MCP_BACKGROUND` | `true` | Keep MCP working while the Freegma tab is in the background. |
 | `PENPOT_SECRET_KEY` | *generated* | Master key (sessions, invitations, MCP keys). Keep it and back it up. |
 | `POSTGRES_PASSWORD` | *generated* | Database password. |
@@ -535,7 +535,7 @@ No `make`? Every target is a plain script in `scripts/` or a `docker compose` co
 | Port 80/443 already in use (NAS web UI, other proxy) | Set `FREEGMA_HTTPS_PORT=8443`, `FREEGMA_HTTP_REDIRECT_PORT=8080` and `FREEGMA_PUBLIC_URI=https://host:8443`, or use Option C. |
 | Claude: "No Penpot instance connected for user token" | Open a design file in Freegma, keep the tab open, and check the toolbar shows **● MCP**. The key in Claude must be your current key (`make mcp-token`). |
 | Claude: "the Penpot tab appears to be suspended" | The browser froze or unloaded the tab. Check `FREEGMA_MCP_BACKGROUND=true`, reload the tab, and add the site to the browser's "always active" list. |
-| "Internal Error" page, report says `"toString" is read-only` (or another `… is read-only`) | A script overrides a built-in that Penpot's plugin sandbox froze. Keep `FREEGMA_SES_OVERRIDE_TAMING=severe`; if it persists, try a private window (extensions off) and send the full stack from the browser console (F12). |
+| "Internal Error" page, report says `"toString" is read-only` (or another `… is read-only`) | Penpot 2.18 freezes built-ins too early when a plugin (e.g. MCP) starts; Freegma fixes this unless `FREEGMA_SES_OVERRIDE_TAMING=off`. Reload with Ctrl+Shift+R so the browser loads the current `freegma.js`. If it persists, try a private window (extensions off) and send the full stack from the browser console (F12). |
 | Claude Code/Desktop: `self-signed certificate` | Trust the CA system-wide or set `NODE_EXTRA_CA_CERTS`. |
 | Branding missing after a Penpot update | `make branding-check`; see [docs/BRANDING.md](docs/BRANDING.md) for the selectors to adjust. |
 | Backend uses too much RAM | `PENPOT_JVM_OPTS=-Xmx1g` then `make up`. |
