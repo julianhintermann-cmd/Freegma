@@ -536,6 +536,7 @@ No `make`? Every target is a plain script in `scripts/` or a `docker compose` co
 | Claude: "No Penpot instance connected for user token" | Open a design file in Freegma, keep the tab open, and check the toolbar shows **● MCP**. The key in Claude must be your current key (`make mcp-token`). |
 | Claude: "the Penpot tab appears to be suspended" | The browser froze or unloaded the tab. Check `FREEGMA_MCP_BACKGROUND=true`, reload the tab, and add the site to the browser's "always active" list. |
 | "Internal Error" page, report says `"toString" is read-only` (or another `… is read-only`) | Penpot 2.18 freezes built-ins too early when a plugin (e.g. MCP) starts; Freegma fixes this unless `FREEGMA_SES_OVERRIDE_TAMING=off`. Reload with Ctrl+Shift+R so the browser loads the current `freegma.js`. If it persists, try a private window (extensions off) and send the full stack from the browser console (F12). |
+| Export / MCP `export_shape`: `unable-to-upload-resource` (HTTP 500) | The backend cannot write its asset folder (`AccessDeniedException` in `make logs S=penpot-backend`). The folder must be writable by UID 1001; on UGOS/Synology NAS keep it out of shared folders, whose ACLs deny access (see `deploy/nas/README.md`). |
 | Claude Code/Desktop: `self-signed certificate` | Trust the CA system-wide or set `NODE_EXTRA_CA_CERTS`. |
 | Branding missing after a Penpot update | `make branding-check`; see [docs/BRANDING.md](docs/BRANDING.md) for the selectors to adjust. |
 | Backend uses too much RAM | `PENPOT_JVM_OPTS=-Xmx1g` then `make up`. |

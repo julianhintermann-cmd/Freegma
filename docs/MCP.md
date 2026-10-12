@@ -143,4 +143,5 @@ version that matches your Penpot version (`npm view @penpot/mcp dist-tags`).
 | No **MCP** item in the toolbar | MCP is not enabled for the user (Integrations) or the key expired. Run `make mcp-token`. |
 | Client cannot connect / TLS error | Trust the CA (`NODE_EXTRA_CA_CERTS`), or check the URL resolves from the client machine. |
 | Works in one tab, not another | Only one tab per user holds MCP; the newest connection wins. |
+| `export_shape`: `unable-to-upload-resource` | The exporter rendered the shape but the backend could not store it: the asset folder is not writable by UID 1001 (NAS shared-folder ACLs). Exporting `"page"` is not supported reliably; export boards or shapes. |
 | `penpot-mcp` unhealthy | `make logs S=penpot-mcp`; the server listens on 4401 (HTTP) and 4402 (WebSocket). |

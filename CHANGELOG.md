@@ -19,7 +19,9 @@ All notable changes to Freegma. Versions refer to the Freegma images
   (`FREEGMA_SES_OVERRIDE_TAMING`, default `severe`; `off` disables both fixes)
 - Freegma logo on Penpot's error and 404 pages
 - NAS: ready-to-run compose files for a plain NAS (`deploy/nas`) and behind
-  Nginx Proxy Manager (`deploy/nas-npm`)
+  Nginx Proxy Manager (`deploy/nas-npm`); assets live in `/volume2/docker/freegma/assets`
+  because UGOS shared-folder ACLs block Penpot (exports failed with
+  `unable-to-upload-resource`)
 
 ## 1.0.0 - 2026-10-12
 

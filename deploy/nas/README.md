@@ -8,18 +8,31 @@ no repository checkout needed. Tested with exactly this folder layout.
 | `/volume2/docker/freegma/postgres` | database | docker data |
 | `/volume2/docker/freegma/caddy/data` | certificates + internal CA | docker data |
 | `/volume2/docker/freegma/caddy/config` | Caddy state | docker data |
-| `/volume1/data/freegma/assets` | uploaded images, fonts, thumbnails (owner `1001:1001`) | long-term data |
+| `/volume2/docker/freegma/assets` | uploaded images, fonts, thumbnails, export temp files (owner `1001:1001`) | docker data |
 | `/volume1/data/freegma/backups` | backups | long-term data |
 
 ## 1. Create the folders (SSH)
 
 ```bash
-sudo mkdir -p /volume2/docker/freegma/{postgres,caddy/data,caddy/config} /volume1/data/freegma/{assets,backups} \
-  && sudo chown -R 1001:1001 /volume1/data/freegma/assets
+sudo mkdir -p /volume2/docker/freegma/{postgres,assets,caddy/data,caddy/config} /volume1/data/freegma/backups \
+  && sudo chown -R 1001:1001 /volume2/docker/freegma/assets
 ```
 
 Penpot runs as UID 1001 and must be able to write `assets`. PostgreSQL and
 Caddy set up their own folders on first start.
+
+Do not put `assets` inside a UGOS shared folder such as `/volume1/data`: UGOS
+puts an ACL on shared folders (`ls -ld` shows `drwxrwxrwx+`) that denies UID
+1001 despite the mode bits. Uploads and exports then fail with
+`AccessDeniedException: /opt/data/assets/..` in the backend log and
+`unable-to-upload-resource` (HTTP 500) in the exporter / MCP `export_shape`.
+Check with:
+
+```bash
+sudo docker exec freegma-backend sh -c 'mkdir -p /opt/data/assets/.t && rmdir /opt/data/assets/.t && echo writable'
+```
+
+The daily backup (below) still copies the assets to `/volume1/data`.
 
 ## 2. Put the compose file in place and set secrets
 
@@ -86,7 +99,7 @@ data folders and start fresh (only safe before you have real data):
 ```bash
 F=/volume2/docker/freegma/docker-compose.yaml   # path of your compose file
 sudo docker compose -p freegma -f "$F" down
-for d in /volume2/docker/freegma/postgres /volume2/docker/freegma/caddy/data /volume2/docker/freegma/caddy/config /volume1/data/freegma/assets; do sudo find "$d" -mindepth 1 -delete; done
+for d in /volume2/docker/freegma/postgres /volume2/docker/freegma/caddy/data /volume2/docker/freegma/caddy/config /volume2/docker/freegma/assets; do sudo find "$d" -mindepth 1 -delete; done
 SK=$(openssl rand -base64 48 | tr -d '/+=\n'); PW=$(openssl rand -base64 24 | tr -d '/+=\n')
 sudo sed -i "s#CHANGE-ME-long-random-secret-key#$SK#; s#CHANGE-ME-db-password#$PW#g" "$F"
 sudo docker compose -p freegma -f "$F" up -d
@@ -114,7 +127,7 @@ Keep a Freegma file open in the browser (toolbar shows "● MCP").
 
 ```bash
 sudo crontab -e
-15 3 * * * d=/volume1/data/freegma/backups/$(date +\%Y\%m\%d) && mkdir -p $d && docker exec freegma-postgres pg_dump -U penpot -d penpot -Fc > $d/database.dump && tar -C /volume1/data/freegma -czf $d/assets.tar.gz assets && cp /volume2/docker/freegma/docker-compose.yml $d/ && find /volume1/data/freegma/backups -mindepth 1 -maxdepth 1 -type d -mtime +14 -exec rm -rf {} +
+15 3 * * * d=/volume1/data/freegma/backups/$(date +\%Y\%m\%d) && mkdir -p $d && docker exec freegma-postgres pg_dump -U penpot -d penpot -Fc > $d/database.dump && tar -C /volume2/docker/freegma -czf $d/assets.tar.gz assets && cp /volume2/docker/freegma/docker-compose.y*ml $d/ && find /volume1/data/freegma/backups -mindepth 1 -maxdepth 1 -type d -mtime +14 -exec rm -rf {} +
 ```
 
 This keeps 14 days of database dump + assets + compose file (with secrets, so

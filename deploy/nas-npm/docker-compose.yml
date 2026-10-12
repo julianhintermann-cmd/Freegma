@@ -9,7 +9,7 @@
 #
 #  Folders:
 #    /volume2/docker/freegma/postgres     database        (docker data)
-#    /volume1/data/freegma/assets         images, fonts   (long-term data, owner 1001:1001)
+#    /volume2/docker/freegma/assets         images, fonts   (docker data, owner 1001:1001; not under a UGOS shared folder: its ACL blocks Penpot)
 #    /volume1/data/freegma/backups        backups         (long-term data)
 #
 #  Replace before the first start: PENPOT_SECRET_KEY and POSTGRES_PASSWORD (2x, same value).
@@ -78,7 +78,7 @@ services:
     image: penpotapp/frontend:2.18.3
     container_name: freegma-frontend
     volumes:
-      - /volume1/data/freegma/assets:/opt/data/assets
+      - /volume2/docker/freegma/assets:/opt/data/assets
     environment:
       <<: [*penpot-flags, *penpot-public-uri]
       PENPOT_HTTP_SERVER_MAX_BODY_SIZE: 367001600
@@ -99,7 +99,7 @@ services:
     image: penpotapp/backend:2.18.3
     container_name: freegma-backend
     volumes:
-      - /volume1/data/freegma/assets:/opt/data/assets
+      - /volume2/docker/freegma/assets:/opt/data/assets
     environment:
       <<: [*penpot-flags, *penpot-public-uri, *penpot-secret-key, *penpot-database]
       PENPOT_REDIS_URI: redis://penpot-valkey/0
