@@ -19,7 +19,7 @@
 #  Open:    https://freegma.home.arpa:18443
 #
 #  Versions: Penpot 2.18.3, PostgreSQL 15.19, Valkey 8.1.10, Caddy 2.11.7,
-#  Freegma proxy sha-82848ec. Source: https://github.com/julianhintermann-cmd/Freegma
+#  Freegma proxy sha-669f549. Source: https://github.com/julianhintermann-cmd/Freegma
 # =============================================================================
 
 name: freegma
@@ -84,7 +84,7 @@ services:
   # --- Freegma branding proxy -----------------------------------------------
   freegma:
     <<: *common
-    image: ghcr.io/julianhintermann-cmd/freegma:sha-82848ec
+    image: ghcr.io/julianhintermann-cmd/freegma:sha-669f549
     container_name: freegma-proxy
     environment:
       FREEGMA_UPSTREAM: http://penpot-frontend:8080
