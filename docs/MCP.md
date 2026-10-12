@@ -29,6 +29,14 @@ Sources: [help.penpot.app/mcp](https://help.penpot.app/mcp/) ·
 - Without an open tab, tools answer *"No Penpot instance connected for user token"*.
 - Only one tab per user holds the MCP connection. Pick it via
   *File → MCP Server → Connect* if you have several.
+- **Background tabs:** the plugin proves it is alive with a heartbeat every
+  10 s; the server rejects tasks after 30 s without one. Browsers throttle
+  timers in hidden tabs (Chrome/Edge: once per minute after 5 minutes), so
+  Freegma injects `/freegma/worker-timers.js` into the plugin page: its
+  intervals run on a Web Worker (not throttled) and it holds a Web Lock that
+  asks the browser not to freeze the tab. The tab can stay in the
+  background; it must not be closed or unloaded. Disable with
+  `FREEGMA_MCP_BACKGROUND=false`.
 
 ## Setup
 

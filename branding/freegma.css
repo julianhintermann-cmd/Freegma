@@ -80,3 +80,16 @@
   bottom: 76px;
   max-width: 250px;
 }
+
+/* ---- Error / not-found pages -------------------------------------------- */
+/* Penpot inlines its logo there (raw SVG, not the sprite), so swap it via CSS. */
+.main_ui_static__penpot-logo {
+  background: url("/freegma/logo-icon.svg") center / contain no-repeat;
+}
+.main_ui_static__penpot-logo > * {
+  visibility: hidden;
+}
+.main_ui_static__deco-before svg,
+.main_ui_static__deco-after2 svg {
+  display: none;
+}

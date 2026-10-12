@@ -10,7 +10,9 @@
  *      (every <use href="#..."> in the app updates automatically),
  *   2. rewrites "Penpot" in the window title (any UI language),
  *   3. shows the "Freegma - based on Penpot (MPL-2.0)" attribution on the
- *      login, dashboard and settings screens.
+ *      login, dashboard and settings screens,
+ *   4. hardens Penpot's plugin sandbox against the SES "override mistake"
+ *      (see sesOverrideTaming below).
  *
  * Penpot internals this relies on are listed in docs/BRANDING.md.
  */
@@ -19,6 +21,40 @@
 
   var F = window.FREEGMA || {};
   var BRAND = F.name || "Freegma";
+
+  // ------------------------------------------------------- plugin sandbox --
+  // Penpot's plugin runtime (used by the MCP plugin) runs SES `lockdown`,
+  // which freezes JavaScript built-ins. With SES' default "moderate" override
+  // taming, any later `obj.toString = ...` (by a library, a browser
+  // extension or newer browser code) throws - in Firefox:
+  //   TypeError: "toString" is read-only   -> Penpot's "Internal Error" page.
+  // "severe" taming makes every frozen built-in property overridable again.
+  // SES reads this option from globalThis.process.env when Penpot's libs.js
+  // initialises (verified for Penpot 2.18.3: libs.js -> getEnvironmentOption).
+  // libs.js itself also assigns `window.process = {cwd: ...}` while loading,
+  // so instead of a one-off shim we keep an accessor that adds our env entry
+  // to whatever object is stored there. Everything else stays untouched.
+  var taming = F.sesOverrideTaming || "severe";
+  if (taming !== "off") {
+    try {
+      var sesEnv = { LOCKDOWN_OVERRIDE_TAMING: taming };
+      var withEnv = function (value) {
+        if (value && typeof value === "object") {
+          var env = value.env && typeof value.env === "object" ? value.env : {};
+          if (!("LOCKDOWN_OVERRIDE_TAMING" in env)) env.LOCKDOWN_OVERRIDE_TAMING = sesEnv.LOCKDOWN_OVERRIDE_TAMING;
+          value.env = env;
+        }
+        return value;
+      };
+      var current = withEnv(globalThis.process || { env: sesEnv });
+      Object.defineProperty(globalThis, "process", {
+        configurable: true,
+        enumerable: false,
+        get: function () { return current; },
+        set: function (value) { current = withEnv(value); },
+      });
+    } catch (e) { /* leave Penpot's defaults */ }
+  }
 
   // Sprite symbols that carry the Penpot logo (Penpot 2.18).
   var WORDMARK_SYMBOLS = ["asset-penpot-logo", "icon-penpot-logo"];

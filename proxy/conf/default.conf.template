@@ -82,6 +82,16 @@ server {
         include /etc/nginx/freegma/html-filters.conf;
     }
 
+    # ---- 1b. MCP plugin page: keep the heartbeat alive in background tabs ----
+    location ~ ^/plugins/mcp/(index\.html)?$ {
+        proxy_pass $freegma_upstream;
+        proxy_set_header Accept-Encoding "";
+        sub_filter_once on;
+        include /etc/nginx/freegma/mcp-plugin-filters.conf;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-cache" always;
+    }
+
     # ---- 2. UI texts --------------------------------------------------------
     location ~ ^/js/translation\.[A-Za-z_]+\.js$ {
         proxy_pass $freegma_upstream;

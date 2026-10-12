@@ -196,6 +196,8 @@ Everything lives in `.env`, created from [`.env.example`](.env.example) by `make
 | `FREEGMA_ACCENT_DARK` / `FREEGMA_ACCENT_LIGHT` | *(empty)* | Accent colour overrides for the dark and light UI themes. |
 | `FREEGMA_REBRAND_TEXT` | `true` | Apply `branding/text-replacements.tsv`. |
 | `FREEGMA_SHOW_ATTRIBUTION` | `true` | Show "Freegma – based on Penpot (MPL-2.0)" on the login screen and dashboard. |
+| `FREEGMA_SES_OVERRIDE_TAMING` | `severe` | Plugin-sandbox hardening level. `severe` prevents "Internal Error" crashes from scripts that override frozen built-ins; `off` = Penpot default. |
+| `FREEGMA_MCP_BACKGROUND` | `true` | Keep MCP working while the Freegma tab is in the background. |
 | `PENPOT_SECRET_KEY` | *generated* | Master key (sessions, invitations, MCP keys). Keep it and back it up. |
 | `POSTGRES_PASSWORD` | *generated* | Database password. |
 | `PENPOT_EXTRA_FLAGS` | `enable-access-tokens` | Extra [Penpot flags](https://help.penpot.app/technical-guide/configuration/), e.g. `enable-smtp`, `enable-webhooks`. |
@@ -344,9 +346,12 @@ fully quit and restart Claude:
 2. Ask Claude something read-only first: *"List the pages in my open Freegma
    file."* Then try a light write: *"Create a 393×852 frame called Home with
    a headline and a primary button."*
-3. Keep the tab open and visible during long tasks. Browsers suspend
-   background tabs; in Chrome add your Freegma URL to *Settings →
-   Performance → Always keep these sites active*.
+3. Keep the tab **open**; it may stay in the background. Freegma drives the
+   MCP plugin's heartbeat from a Web Worker, so browser throttling of hidden
+   tabs no longer breaks the connection (`FREEGMA_MCP_BACKGROUND=true`).
+   Closing the tab, or the browser unloading it to save memory, still
+   disconnects; in Chrome you can add your Freegma URL to *Settings →
+   Performance → Always keep these sites active* to rule that out.
 
 Tools available in this (remote) mode: `execute_code`, `high_level_overview`,
 `penpot_api_info`, `export_shape` (PNG/SVG returned to Claude).
@@ -529,7 +534,8 @@ No `make`? Every target is a plain script in `scripts/` or a `docker compose` co
 | Browser certificate warning | Trust the CA (`make ca-cert`) or use Let's Encrypt. |
 | Port 80/443 already in use (NAS web UI, other proxy) | Set `FREEGMA_HTTPS_PORT=8443`, `FREEGMA_HTTP_REDIRECT_PORT=8080` and `FREEGMA_PUBLIC_URI=https://host:8443`, or use Option C. |
 | Claude: "No Penpot instance connected for user token" | Open a design file in Freegma, keep the tab open, and check the toolbar shows **● MCP**. The key in Claude must be your current key (`make mcp-token`). |
-| Claude: "the Penpot tab appears to be suspended" | Bring the tab to the foreground; add the site to the browser's "always active" list. |
+| Claude: "the Penpot tab appears to be suspended" | The browser froze or unloaded the tab. Check `FREEGMA_MCP_BACKGROUND=true`, reload the tab, and add the site to the browser's "always active" list. |
+| "Internal Error" page, report says `"toString" is read-only` (or another `… is read-only`) | A script overrides a built-in that Penpot's plugin sandbox froze. Keep `FREEGMA_SES_OVERRIDE_TAMING=severe`; if it persists, try a private window (extensions off) and send the full stack from the browser console (F12). |
 | Claude Code/Desktop: `self-signed certificate` | Trust the CA system-wide or set `NODE_EXTRA_CA_CERTS`. |
 | Branding missing after a Penpot update | `make branding-check`; see [docs/BRANDING.md](docs/BRANDING.md) for the selectors to adjust. |
 | Backend uses too much RAM | `PENPOT_JVM_OPTS=-Xmx1g` then `make up`. |

@@ -3,6 +3,18 @@
 All notable changes to Freegma. Versions refer to the Freegma images
 (`freegma`, `freegma-tools`); the bundled Penpot version is listed per release.
 
+## 1.1.0 - 2026-10-12
+
+- MCP works with the Freegma tab in the background: the MCP plugin's
+  heartbeat timers run on a Web Worker and the plugin holds a Web Lock
+  (`FREEGMA_MCP_BACKGROUND`, default on)
+- Fewer "Internal Error" crashes: Penpot's plugin sandbox (SES) runs with
+  `overrideTaming: severe`, so scripts overriding frozen built-ins no longer
+  crash the workspace (`FREEGMA_SES_OVERRIDE_TAMING`, default `severe`)
+- Freegma logo on Penpot's error and 404 pages
+- NAS: ready-to-run compose files for a plain NAS (`deploy/nas`) and behind
+  Nginx Proxy Manager (`deploy/nas-npm`)
+
 ## 1.0.0 - 2026-10-12
 
 First release. Penpot **2.18.3**.
