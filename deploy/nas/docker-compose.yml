@@ -16,7 +16,7 @@
 #
 #  Start:   sudo docker compose -p freegma up -d
 #  Admin:   sudo docker exec -it freegma-backend python3 manage.py create-profile
-#  Open:    https://freegma.home.arpa
+#  Open:    https://freegma.home.arpa:18443
 #
 #  Versions: Penpot 2.18.3, PostgreSQL 15.19, Valkey 8.1.10, Caddy 2.11.7,
 #  Freegma proxy sha-8d775bd. Source: https://github.com/julianhintermann-cmd/Freegma
@@ -30,7 +30,7 @@ x-flags: &penpot-flags
     disable-onboarding enable-prepl-server enable-mcp enable-access-tokens
 
 x-public-uri: &penpot-public-uri
-  PENPOT_PUBLIC_URI: https://freegma.home.arpa              # CHANGE (your hostname)
+  PENPOT_PUBLIC_URI: https://freegma.home.arpa:18443        # CHANGE (your hostname; keep :18443)
 
 x-secret-key: &penpot-secret-key
   PENPOT_SECRET_KEY: CHANGE-ME-long-random-secret-key       # CHANGE
@@ -66,8 +66,10 @@ services:
       - freegma:8080
       - --internal-certs
     ports:
-      - "443:443"     # if 443 is taken: "8443:443" and use https://host:8443 everywhere
-      - "80:80"       # HTTP -> HTTPS redirect; if taken: "8080:80" or remove the line
+      # UGOS' own nginx already uses 80/443, so Freegma uses 18443/18080.
+      # Check first: sudo ss -tlnp | grep -E ':(18443|18080)\b'   (no output = free)
+      - "18443:443"
+      - "18080:80"
     volumes:
       - /volume2/docker/freegma/caddy/data:/data
       - /volume2/docker/freegma/caddy/config:/config
@@ -134,7 +136,7 @@ services:
       PENPOT_HTTP_SERVER_MAX_BODY_SIZE: 367001600
       PENPOT_HTTP_SERVER_MAX_MULTIPART_BODY_SIZE: 367001600
       PENPOT_TELEMETRY_ENABLED: "false"
-      # JVM_OPTS: "-Xmx1g"   # uncomment on NAS with <= 4 GB RAM
+      JVM_OPTS: "-Xmx1g"     # cap the Java heap (NAS RAM is shared with other apps)
     depends_on:
       penpot-postgres: { condition: service_healthy }
       penpot-valkey: { condition: service_healthy }
@@ -143,7 +145,7 @@ services:
       interval: 15s
       timeout: 5s
       retries: 20
-      start_period: 60s
+      start_period: 180s     # slow NAS CPUs need 1-2 min for the first start
 
   penpot-exporter:
     <<: *common
